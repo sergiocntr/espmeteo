@@ -41,7 +41,7 @@ Serial.begin(9600);
 
     printWEB();
     //delay(500);
-  Wire.begin(default_sda_pin, default_scl_pin);
+  //Wire.begin(default_sda_pin, default_scl_pin);
   Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
