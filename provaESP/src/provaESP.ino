@@ -14,7 +14,7 @@ IPAddress subnet(255, 255, 255, 0);
 #define host "www.developteamgold.altervista.org"
 const int httpPort = 80;
 uint16_t voltage = 0;
-uint8_t dati[3];
+uint8_t dati[2];
 void setup()
 {
 Serial.begin(9600);

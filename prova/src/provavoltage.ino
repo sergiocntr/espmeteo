@@ -25,6 +25,7 @@ const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi 
 };*/
 void setup(){
   pinMode(pinLed,OUTPUT);
+  cv.begin();
   setup_watchdog(9); // approximately 8 seconds sleep
   TinyWireS.begin(I2C_SLAVE_ADDRESS);
   TinyWireS.onReceive(receiveEvent);
@@ -67,16 +68,27 @@ void receiveEvent(uint8_t howMany)
 
 void powerESP()
 {
+cv.readVcc();
+  //cv.readVcc();
   digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
-  tws_delay(150);
-cv.begin();
-  cv.readVcc();
+  //tws_delay(50);
 
+
+  //reg_position = 0;
+  //uint16_t  sumvolt = 0;
+  //for (int i=0; i = 2; i++){
+  //Checkvoltage cv;
+
+  //  sumvolt = sumvolt +cv.volt;
+  //}
+  //sumvolt = sumvolt / 3;
+  //cv.dati[0]=sumvolt & 0xff;
+  //cv.dati[1]=(sumvolt >> 8);
 }
 void powerDownEsp(){
   tws_delay(50);
   digitalWrite(pinLed,LOW);   // esp-01  power off
   pinMode(pinLed,INPUT); // set all used port to intput to save power
   system_sleep();
-  pinMode(pinLed,OUTPUT); // set all ports into state before sleep
+  setup();
 }
