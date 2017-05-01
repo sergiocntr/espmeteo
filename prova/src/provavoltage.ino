@@ -16,17 +16,13 @@ int pinLed = 1;
 int watch_dog_counter = 2;
 volatile byte reg_position = 0;
 const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino
-/*volatile uint8_t i2c_regs[] =
-{
-    0xDE,
-    0xAD,
-    0xBE,
-    0xEF,
-};*/
 void setup(){
+  delay(300);
   pinMode(pinLed,OUTPUT);
   cv.begin();
+  cv.readVcc();
   setup_watchdog(9); // approximately 8 seconds sleep
+  reg_position = 0;
   TinyWireS.begin(I2C_SLAVE_ADDRESS);
   TinyWireS.onReceive(receiveEvent);
   TinyWireS.onRequest(requestEvent);
@@ -34,11 +30,10 @@ void setup(){
 void loop(){
   if (watch_dog_counter>=2) {  // 90*8 sec =13 min : wait for timed out watchdog / flag is set when a watchdog timeout occurs
     watch_dog_counter=0;        // reset flag
-    powerESP();
+    digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
   }
   TinyWireS_stop_check();
 }
-
 void requestEvent()
 {
   TinyWireS.send(cv.dati[reg_position]);
@@ -64,26 +59,6 @@ void receiveEvent(uint8_t howMany)
     }
     reg_position = TinyWireS.receive();
     if(reg_position == 20) powerDownEsp();
-}
-
-void powerESP()
-{
-cv.readVcc();
-  //cv.readVcc();
-  digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
-  //tws_delay(50);
-
-
-  //reg_position = 0;
-  //uint16_t  sumvolt = 0;
-  //for (int i=0; i = 2; i++){
-  //Checkvoltage cv;
-
-  //  sumvolt = sumvolt +cv.volt;
-  //}
-  //sumvolt = sumvolt / 3;
-  //cv.dati[0]=sumvolt & 0xff;
-  //cv.dati[1]=(sumvolt >> 8);
 }
 void powerDownEsp(){
   tws_delay(50);
