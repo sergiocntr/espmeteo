@@ -21,6 +21,7 @@ Serial.begin(9600);
   connLAN();  //mi collego a alla rete per mettere in sforzo la batteria
   //Serial.begin(115200);
   delay(500); // do tempo a Attiny di leggere la tensione
+  while (voltage < 3500 | voltage > 5000){
   Wire.begin(default_sda_pin, default_scl_pin);
     for (int i=0; i <= 2; i++){
       Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
@@ -38,20 +39,15 @@ Serial.begin(9600);
   }*/
     voltage = (dati[1]<<8) | dati[0];
     //voltage = dati[0];
-
+}
     printWEB();
-    //delay(500);
-  //Wire.begin(default_sda_pin, default_scl_pin);
-  Wire.beginTransmission (2);
-  Wire.write (20);
-  Wire.endTransmission(true);
-  delay(5);
-
 }
 void loop(){
 
-//Wire.write (20);
-//*/
+  Wire.beginTransmission (2);
+  Wire.write (20);
+  Wire.endTransmission(true);
+  delay(250);
 }
 void connLAN()
 {
