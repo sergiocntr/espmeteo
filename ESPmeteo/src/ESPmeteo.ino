@@ -14,8 +14,8 @@ static int default_sda_pin = 0;
 static int default_scl_pin = 2;
 //WIFI stuff
 WiFiClient c;
-const char* ssid     = "TIM-18232399";
-const char* password = "ObXtYwlWaqnXIJjqs2NbF6qP";
+const char* ssid     = "*********";
+const char* password = "***************";
 IPAddress ip(192, 168, 1, 211); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -139,7 +139,7 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 		Serial.println("connected");
     // Make a HTTP request:
     String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
-    +"&&pwd=admin" +
+    +"&&pwd=***********" +
     +"&&hum_out=" + String(humidityDHT22) +
     +"&&rel_pressure=" + String(p0) +
     +"&&dwew=" + String(dp) +
