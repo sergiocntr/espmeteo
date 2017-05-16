@@ -1,7 +1,0 @@
-rev 0
-attiny accende ESP-01 ok
-esp legge il voltaggio da attiny via I2C ok
-esp mette in stand by attiny inviando il codice 20 ok
-Attiny dopo un tempo programmato riaccende l'ESP e cosi via ok
-TODO legge solo al collegamento con la batteria il voltaggio corretto,poi
-ai successivi riavvii legge altri valori

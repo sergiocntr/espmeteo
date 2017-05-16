@@ -1,12 +1,10 @@
-
-
 #define ALTITUDE 110.0 // Altitude
 void dh()
 {
   //DHT22 stuff
   // Wait a few seconds between measurements.
   //
-
+  delay(2000);
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   humidityDHT22 = dht.readHumidity();
@@ -19,11 +17,6 @@ void dh()
     delay(2000);
     humidityDHT22 = dht.readTemperature();
   }
-
-  double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
-  dp = 243.5 * gamma / (17.62 - gamma);
-
-  Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
 }
 void bm()
 {
@@ -43,7 +36,7 @@ void bm()
         status = pressure.getPressure(P,T);
         if (status != 0)
         {
-            p0 = pressure.sealevel(P,ALTITUDE); // we're at 1655 meters (Boulder, CO)
+            p0 = pressure.sealevel(P,ALTITUDE);
         }
         else Serial.println("error retrieving pressure measurement\n");
       }
@@ -55,26 +48,8 @@ void bm()
 
 
 }
-/*void printLCD()
-{
-  //do strings for LCD
-  sprintf(_buffer, "Temp. %h.2f C",temperatureDHT22);
-  lcd.clear();
-  lcd.setCursor(0,1);
-  lcd.print(_buffer);
-  sprintf(_buffer, "Um %h.2f RH",humidityDHT22);
-  lcd.setCursor(0,0);
-  lcd.print(_buffer);
-  delay(5000);  // Pause for 5 seconds.
-  sprintf(_buffer, "TempB. %h.2f C",T);
-  lcd.clear();
-  lcd.setCursor(0,1);
-  lcd.print(_buffer);
-  sprintf(_buffer, "Press %h.2f RH",P);
-  lcd.setCursor(0,0);
-  lcd.print(_buffer);
-}*/
-void printSerial()
+
+/*void printSerial()
 {
   Serial.println();
   Serial.print("provided altitude: ");
@@ -104,4 +79,4 @@ void printSerial()
   Serial.print(" meters, ");
   Serial.print(a*3.28084,0);
   Serial.println(" feet");
-}
+}*/
