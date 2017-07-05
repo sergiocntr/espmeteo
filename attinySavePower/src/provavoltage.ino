@@ -39,6 +39,7 @@ void requestEvent()
   TinyWireS.send(cv.dati[reg_position]);
   // Increment the reg position on each read, and loop back to zero
   reg_position++;
+  TinyWireS.send(cv.dati[reg_position]);
   if (reg_position >= reg_size)
   {
     reg_position = 0;
