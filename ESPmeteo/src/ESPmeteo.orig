@@ -3,35 +3,35 @@ questo e' il codice che gira sull ESP meteo
 aggiorna il voltaggio
 spegne ESP
 */
-//#include <avr/interrupt.h>
 #include "DHT.h"
+#include <SFE_BMP180.h>
 #include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
+//#include <EEPROM.h>
 #include <I2C_Anything.h>
 //ESP-01 SDA - SCL pin
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
 //WIFI stuff
+WiFiClient c;
 const char* ssid     = "TIM-18232399";
 const char* password = "ObXtYwlWaqnXIJjqs2NbF6qP";
-WiFiClient c;
 IPAddress ip(192, 168, 1, 211); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0);
 // data web host Settings
 #define host "www.developteamgold.altervista.org"
+#define host "www.developteamgold.altervista.org"
 const int httpPort = 80;
 //voltage stuff
 uint16_t voltage = 0;  //voltage get from attiny
-uint8_t dati[2];       // attiny low and high voltage byte
+uint8_t dati[2];        // attiny low and high voltage byte
 //BMP stuff
-Adafruit_BMP280 bmp; // I2C
-double p0;
+SFE_BMP180 pressure;
+char status;
+double T,P,p0,a;
 //DHT22 stuff
-#define DHTPIN 3  //GPIO1 (Rx) what digital pin we're connected to
+#define DHTPIN 1  //GPIO1 (Tx) what digital pin we're connected to
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPIN, DHTTYPE);
 float humidityDHT22,temperatureDHT22,Humidex,dp;
@@ -49,21 +49,17 @@ typedef struct meteoData MeteoData;
 MeteoData met, retmet;
 void setup()
 {
-	Serial.begin(9600);
-	delay(500); 									// do tempo a Attiny di leggere la tensione
-	Serial.println("OK");
-	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
+	//begin section
+	//Serial.begin(9600);
 	Wire.begin(default_sda_pin, default_scl_pin);
+  delay(500); 									// do tempo a Attiny di leggere la tensione
+  uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
 	uint8_t value = readEEPROM(nValuesAddr); //have we records stored in I2C ?
-	Serial.println("records: " + value);
-	if(value==255) {
-		value = 0;
-		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
-	}
 	if(check == 1 && value > 0) sendData(value); // if WIFI available and records stored, send them to server
 	//data section
 	requestSensorsValues();
   if(check == 1){	//  if local WIFI connection OK send data without save to I2C
+
 		printWEB(true); // send data to server (true = get time from web server (live record))
 	}
   else{		//local WIFI connection KO
@@ -79,35 +75,45 @@ void setup()
   }
 }
 void loop(){
-  Serial.println("spegniti");
-  delay(500);
-	Wire.begin(default_sda_pin, default_scl_pin);
+  //Serial.println("spegniti");
+  //Wire.begin(default_sda_pin, default_scl_pin);
   Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
-
+  delay(250);
 }
 //data
 void requestSensorsValues(){
-	//while (voltage < 3500 | voltage > 5000){			//sanity check about voltage value
+	while (voltage < 3500 | voltage > 5000){			//sanity check about voltage value
     //Wire.begin(default_sda_pin, default_scl_pin);		//better way welcome!
     for (int i=0; i <= 2; i++){
       Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
       dati[i] = Wire.read();    // receive a byte as character
     }
     voltage = (dati[1]<<8) | dati[0];
-  //}
-  Serial.println("voltage : " + String(voltage));
-	sensor_init();
-  delay(50);
-
+  }
+  //delay(50);							//I'll try to avoid those delays....
+  dht.begin();						//DTH22 initialization
+  //delay(50);
+  pressure.begin();			//BMP080 initialization
   bm();									// read BMP080 values
   Serial.println("recuperata pressione : " + String(p0));
   //delay(2000);
   dh();									//read DHT22 values
-  Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
+  //Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
   //delay(50);
-  //Serial.println("connesso lan" );*/
+  //Serial.println("connesso lan" );
+}
+void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
+	for (int i = 0 ; i <= (nrRecords - 1); i++){
+		readStructEEPROM(32 * i); // read I2C eeprom
+		voltage = met.battery;
+    humidityDHT22 = met.humidityDHT22 ;
+    temperatureDHT22 = met.temperatureDHT22 ;
+    p0 = met.externalPressure ;
+		printWEB(false);// false add time from last web server record (recorded record)
+	}
+	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 }
 //WIFI
 uint8_t connLAN()
@@ -134,7 +140,7 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 		Serial.println("connected");
     // Make a HTTP request:
     String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
-    +"&&pwd=" + webpass +
+    +"&&pwd=***********" +
     +"&&hum_out=" + String(humidityDHT22) +
     +"&&rel_pressure=" + String(p0) +
     +"&&dwew=" + String(dp) +
@@ -148,17 +154,6 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 }
 
 //I2C EEPROM
-void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
-	for (int i = 0 ; i <= (nrRecords - 1); i++){
-		readStructEEPROM(32 * i); // read I2C eeprom
-		voltage = met.battery;
-    humidityDHT22 = met.humidityDHT22 ;
-    temperatureDHT22 = met.temperatureDHT22 ;
-    p0 = met.externalPressure ;
-		printWEB(false);// false add time from last web server record (recorded record)
-	}
-	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-}
 byte writeStructEEPROM(unsigned int addr)
 {
 	byte err;
