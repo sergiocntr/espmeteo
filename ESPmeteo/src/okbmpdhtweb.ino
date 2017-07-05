@@ -1,4 +1,8 @@
-#define ALTITUDE 110.0 // Altitude
+//#define ALTITUDE 110.0 // Altitude
+void sensor_init(){
+  dht.begin();						//DTH22 initialization
+	bmp.begin();
+}
 void dh()
 {
   //DHT22 stuff
@@ -8,45 +12,27 @@ void dh()
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   humidityDHT22 = dht.readHumidity();
+
   while (isnan(humidityDHT22)) {
+    Serial.println("Error reading humidity!");
     delay(2000);
     humidityDHT22 = dht.readHumidity();
   }
   temperatureDHT22 = dht.readTemperature();
   while (isnan(temperatureDHT22)) {
+    Serial.println("Error reading temperature!");
     delay(2000);
-    humidityDHT22 = dht.readTemperature();
+    temperatureDHT22 = dht.readTemperature();
   }
+
 }
 void bm()
 {
-  status = pressure.startTemperature();
-  if (status != 0)
-  {
-    // Wait for the measurement to complete:
-    delay(status);
-    status = pressure.getTemperature(T);
-    if (status != 0)
-    {
-      status = pressure.startPressure(3);
-      if (status != 0)
-      {
-        // Wait for the measurement to complete:
-        delay(status);
-        status = pressure.getPressure(P,T);
-        if (status != 0)
-        {
-            p0 = pressure.sealevel(P,ALTITUDE);
-        }
-        else Serial.println("error retrieving pressure measurement\n");
-      }
-      else Serial.println("error starting pressure measurement\n");
-    }
-    else Serial.println("error retrieving temperature measurement\n");
-  }
-  else Serial.println("error starting temperature measurement\n");
-
-
+  int ALTEZZA_MISURA_MT = 125;
+  bmp.readTemperature();
+  //p0=bme.readPressure();
+  p0 = bmp.readPressure() / 100.0;
+  p0 = ( p0 / pow( 1 - ( ALTEZZA_MISURA_MT / 44330.0 ) , 5.255 ) );
 }
 
 /*void printSerial()
