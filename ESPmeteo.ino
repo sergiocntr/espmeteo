@@ -3,16 +3,26 @@ questo e' il codice che gira sull ESP meteo
 aggiorna il voltaggio
 spegne ESP
 */
-#include "DHT.h"
-#include <SFE_BMP180.h>
 #include <Wire.h>
-#include <ESP8266WiFi.h>
-//#include <EEPROM.h>
-#include <I2C_Anything.h>
 //ESP-01 SDA - SCL pin
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
+//I2C eeprom stuff
+const int SLAVE_ADDRESS = 0X50; //classic I2C EEPROM address
+const uint16_t nValuesAddr = 0x0FFF; //address on I2C EEPROM ,we store there how many reecords we have
+//structure used to store and recall data
+#include <I2C_Anything.h>
+struct meteoData{
+	float humidityDHT22;
+	float temperatureDHT22;
+	double externalPressure;
+  int battery;
+};
+typedef struct meteoData MeteoData;
+MeteoData met, retmet;
 //WIFI stuff
+#include <ESP8266WiFi.h>
+#include <ESP8266Ping.h> //used to know if we are online
 WiFiClient c;
 const char* ssid     = "TIM-18232399";
 const char* password = "ObXtYwlWaqnXIJjqs2NbF6qP";
@@ -26,34 +36,30 @@ const int httpPort = 80;
 uint16_t voltage = 0;  //voltage get from attiny
 uint8_t dati[2];        // attiny low and high voltage byte
 //BMP stuff
+#include <SFE_BMP180.h>
 SFE_BMP180 pressure;
 char status;
 double T,P,p0,a;
 //DHT22 stuff
+#include "DHT.h"
 #define DHTPIN 3  //GPIO3 (rx) what digital pin we're connected to- was 1 : tx needed for debug info
 #define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 DHT dht(DHTPIN, DHTTYPE);
 float humidityDHT22,temperatureDHT22,Humidex,dp;
-//I2C eeprom stuff
-const int SLAVE_ADDRESS = 0X50; //classic I2C EEPROM address
-const uint16_t nValuesAddr = 0x0FFF; //address on I2C EEPROM ,we store there how many reecords we have
-//meteo data object + battery
-struct meteoData{
-	float humidityDHT22;
-	float temperatureDHT22;
-	double externalPressure;
-  int battery;
-};
-typedef struct meteoData MeteoData;
-MeteoData met, retmet;
+
+//keep in mind that the ESP is rebooted every 15 min by the Attiny sleep timer
 void setup()
 {
 	//begin section
 	Serial.begin(9600);
+	//Start I2C comm
 	Wire.begin(default_sda_pin, default_scl_pin);
   delay(500); 									// do tempo a Attiny di leggere la tensione
-  uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
-	uint8_t value = readEEPROM(nValuesAddr); //have we records stored in I2C ?
+	//check Wifi local lan connection  1 -> connected to local WIFI ; 0-> offline
+  uint8_t check = connLAN();
+	//check if we have  meteo records stored in I2C
+	uint8_t value = readEEPROM(nValuesAddr);
+	//if there are meteo record and now we are on line send the stored data to the web server
 	if(check == 1 && value > 0) sendData(value); // if WIFI available and records stored, send them to server
 	//data section
 	requestSensorsValues();
@@ -91,6 +97,7 @@ void requestSensorsValues(){
     }
     voltage = (dati[1]<<8) | dati[0];
   }
+	Serial.printl("Dati 1 : " + dati[1] + " dati 0 : " + dati[0]);
 	Serial.println("Battery : " + String(voltage));
   //delay(50);							//I'll try to avoid those delays....
   dht.begin();						//DTH22 initialization
@@ -131,8 +138,24 @@ uint8_t connLAN()
 		}
     delay(700);
   }
+
 	if (check == 0) WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
-  return check;
+	else
+	{
+		for (int i = 0; i < 5; i++) {
+			if(Ping.ping("www.gogle.com"))
+			{
+				check = 1;
+				break;
+		  } else
+			{
+		    check = 0;
+		  }
+			delay(2000);
+		}
+	}
+
+		return check;
 }
 void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 {

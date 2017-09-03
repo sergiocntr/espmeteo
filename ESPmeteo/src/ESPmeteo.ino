@@ -7,7 +7,7 @@ spegne ESP
 #include "DHT.h"
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_Sensor.h>
+//#include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
 #include <I2C_Anything.h>
@@ -15,8 +15,9 @@ spegne ESP
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
 //WIFI stuff
-const char* ssid     = "TIM-18232399";
-const char* password = "ObXtYwlWaqnXIJjqs2NbF6qP";
+const char* ssid     = "TIM-23836387";
+const char* password = "51vEBuMvmALxNQHVIHQKkn52";
+const char* webpass ="";
 WiFiClient c;
 IPAddress ip(192, 168, 1, 211); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
@@ -55,7 +56,7 @@ void setup()
 	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
 	Wire.begin(default_sda_pin, default_scl_pin);
 	uint8_t value = readEEPROM(nValuesAddr); //have we records stored in I2C ?
-	Serial.println("records: " + value);
+	Serial.println("check = " + String(check) + ", records: " + String(value));
 	if(value==255) {
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
@@ -97,6 +98,7 @@ void requestSensorsValues(){
     }
     voltage = (dati[1]<<8) | dati[0];
   //}
+	Serial.println("dati[1] : " + String(dati[1]) + "dati[0] : " + String(dati[0]));
   Serial.println("voltage : " + String(voltage));
 	sensor_init();
   delay(50);
@@ -134,7 +136,7 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 		Serial.println("connected");
     // Make a HTTP request:
     String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
-    +"&&pwd=" + webpass +
+    +"&&pwd=admin" +
     +"&&hum_out=" + String(humidityDHT22) +
     +"&&rel_pressure=" + String(p0) +
     +"&&dwew=" + String(dp) +
