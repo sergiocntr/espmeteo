@@ -12,7 +12,7 @@ Checkvoltage cv;
 #ifndef TWI_RX_BUFFER_SIZE
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
-int pinLed = 1;
+int pinLed = 1; 
 int watch_dog_counter = 100;
 volatile byte reg_position = 0;
 const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino

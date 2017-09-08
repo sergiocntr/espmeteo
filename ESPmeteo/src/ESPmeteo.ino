@@ -4,6 +4,7 @@ aggiorna il voltaggio
 spegne ESP
 */
 //#include <avr/interrupt.h>
+#define DEBUG
 #include "DHT.h"
 #include <Wire.h>
 #include <SPI.h>
@@ -15,9 +16,9 @@ spegne ESP
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
 //WIFI stuff
-const char* ssid     = "TIM-23836387";
-const char* password = "51vEBuMvmALxNQHVIHQKkn52";
-const char* webpass ="";
+const char* ssid     = "WIFISSID";
+const char* password = "PASSWORD";
+const char* webpass ="PASSWORD";
 WiFiClient c;
 IPAddress ip(192, 168, 1, 211); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
@@ -90,26 +91,20 @@ void loop(){
 }
 //data
 void requestSensorsValues(){
-	//while (voltage < 3500 | voltage > 5000){			//sanity check about voltage value
-    //Wire.begin(default_sda_pin, default_scl_pin);		//better way welcome!
-    for (int i=0; i <= 2; i++){
-      Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
-      dati[i] = Wire.read();    // receive a byte as character
-    }
-    voltage = (dati[1]<<8) | dati[0];
-  //}
-	Serial.println("dati[1] : " + String(dati[1]) + "dati[0] : " + String(dati[0]));
+
+  for (int i=0; i <= 2; i++){
+    Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
+    dati[i] = Wire.read();    // receive a byte as character
+  }
+  voltage = (dati[1]<<8) | dati[0];
+  Serial.println("dati[1] : " + String(dati[1]) + "dati[0] : " + String(dati[0]));
   Serial.println("voltage : " + String(voltage));
 	sensor_init();
-  delay(50);
-
   bm();									// read BMP080 values
   Serial.println("recuperata pressione : " + String(p0));
-  //delay(2000);
   dh();									//read DHT22 values
   Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
-  //delay(50);
-  //Serial.println("connesso lan" );*/
+
 }
 //WIFI
 uint8_t connLAN()
@@ -136,7 +131,7 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
 		Serial.println("connected");
     // Make a HTTP request:
     String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
-    +"&&pwd=admin" +
+    +"&&pwd=" + webpass +
     +"&&hum_out=" + String(humidityDHT22) +
     +"&&rel_pressure=" + String(p0) +
     +"&&dwew=" + String(dp) +

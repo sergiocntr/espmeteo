@@ -18,6 +18,7 @@ struct meteoData{
 	double externalPressure;
   int battery;
 };
+prova;
 typedef struct meteoData MeteoData;
 MeteoData met, retmet;
 //WIFI stuff
@@ -90,7 +91,6 @@ void loop(){
 //data
 void requestSensorsValues(){
 	while (voltage < 3500 | voltage > 5000){			//sanity check about voltage value
-    //Wire.begin(default_sda_pin, default_scl_pin);		//better way welcome!
     for (int i=0; i <= 2; i++){
       Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
       dati[i] = Wire.read();    // receive a byte as character
@@ -99,9 +99,7 @@ void requestSensorsValues(){
   }
 	Serial.printl("Dati 1 : " + dati[1] + " dati 0 : " + dati[0]);
 	Serial.println("Battery : " + String(voltage));
-  //delay(50);							//I'll try to avoid those delays....
   dht.begin();						//DTH22 initialization
-  //delay(50);
   pressure.begin();			//BMP080 initialization
   bm();									// read BMP080 values
   Serial.println("Pressure : " + String(p0));
@@ -109,8 +107,6 @@ void requestSensorsValues(){
   dh();									//read DHT22 values
   Serial.println("Temp : " + String(temperatureDHT22));
 	Serial.println("Hum : " + String(humidityDHT22));
-  //delay(50);
-  //Serial.println("connesso lan" );
 }
 void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
 	for (int i = 0 ; i <= (nrRecords - 1); i++){
