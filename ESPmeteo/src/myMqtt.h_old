@@ -1,0 +1,16 @@
+#ifndef myMqtt_h
+#define myMqtt_h
+#include <PubSubClient.h> //mqtt library
+#include <ArduinoJson.h>
+class myMqtt
+{
+  public:
+    const char* mqtt_server;
+    const char* oneTopic;
+    const char* inTopic ;
+    const char* logTopic ;
+    PubSubClient client;
+    void callback(char* topic, byte* payload, unsigned int length);
+    int reconnect();
+    void printMqtt();
+}

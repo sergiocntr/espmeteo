@@ -1,3 +1,4 @@
+
 /*
 questo e' il codice che gira sull ESP meteo
 aggiorna il voltaggio
@@ -8,17 +9,18 @@ spegne ESP
 #include "DHT.h"
 #include <Wire.h>
 #include <SPI.h>
-//#include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <ESP8266WiFi.h>
 #include <I2C_Anything.h>
+#include <PubSubClient.h> //mqtt library
+#include <ArduinoJson.h>
 //ESP-01 SDA - SCL pin
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
 //WIFI stuff
-const char* ssid     = "WIFISSID";
-const char* password = "PASSWORD";
-const char* webpass ="PASSWORD";
+const char* ssid     = "TIM-23836387";
+const char* password = "51vEBuMvmALxNQHVIHQKkn52";
+const char* webpass ="admin";
 WiFiClient c;
 IPAddress ip(192, 168, 1, 211); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
@@ -49,10 +51,20 @@ struct meteoData{
 };
 typedef struct meteoData MeteoData;
 MeteoData met, retmet;
+
+
+PubSubClient client(c);
+const char* mqtt_server = "192.168.1.100";
+const char* sensorsTopic = "/casa/esterno/terrazza_leo/sensori";
+const char* inTopic ="/casa/esterno/terrazza_leo/input";
+const char* logTopic ="/casa/esterno/terrazza_leo/log";
+
 void setup()
 {
 	Serial.begin(9600);
 	delay(500); 									// do tempo a Attiny di leggere la tensione
+	client.setServer(mqtt_server, 8883);
+  client.setCallback(callback);
 	Serial.println("OK");
 	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
 	Wire.begin(default_sda_pin, default_scl_pin);
@@ -67,6 +79,7 @@ void setup()
 	requestSensorsValues();
   if(check == 1){	//  if local WIFI connection OK send data without save to I2C
 		printWEB(true); // send data to server (true = get time from web server (live record))
+		printMqtt();
 	}
   else{		//local WIFI connection KO
 		uint16_t availAddress = 32 * value;	//MeteoData is 24 bytes long so..
@@ -79,7 +92,9 @@ void setup()
 		value++; //add record's nr
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
   }
+
 }
+
 void loop(){
   Serial.println("spegniti");
   delay(500);
@@ -107,8 +122,7 @@ void requestSensorsValues(){
 
 }
 //WIFI
-uint8_t connLAN()
-{
+uint8_t connLAN(){
   uint8_t check=0;
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -121,8 +135,7 @@ uint8_t connLAN()
 	if (check == 0) WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
   return check;
 }
-void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
-{
+void printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
   if (c.connect(host, httpPort))
   {
 		double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
@@ -141,9 +154,9 @@ void printWEB(bool timeAvailable) //timeAvailable -> live mesaures
     + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
     Serial.println(s);
     c.println(s);
+
   }
 }
-
 //I2C EEPROM
 void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
 	for (int i = 0 ; i <= (nrRecords - 1); i++){
@@ -156,8 +169,7 @@ void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web se
 	}
 	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 }
-byte writeStructEEPROM(unsigned int addr)
-{
+byte writeStructEEPROM(unsigned int addr){
 	byte err;
 	Wire.beginTransmission(SLAVE_ADDRESS);
 	Wire.write ((byte) (addr >> 8));    // high order byte
@@ -167,8 +179,7 @@ byte writeStructEEPROM(unsigned int addr)
 	delay(6);  // needs 5ms for page write
 	return err;  // cannot write to device
 }
-byte readStructEEPROM(unsigned int addr)
-{
+byte readStructEEPROM(unsigned int addr){
   byte err;
 	Wire.beginTransmission (SLAVE_ADDRESS);
   Wire.write ((byte) (addr >> 8));    // high order byte
@@ -181,8 +192,7 @@ byte readStructEEPROM(unsigned int addr)
 
   return err;
 }
-void writeEEPROM(uint16_t eeaddress, uint8_t data )
-{
+void writeEEPROM(uint16_t eeaddress, uint8_t data ){
   Wire.beginTransmission(SLAVE_ADDRESS);
   Wire.write((int)(eeaddress >> 8));   // MSB
   Wire.write((int)(eeaddress & 0xFF)); // LSB
@@ -191,8 +201,7 @@ void writeEEPROM(uint16_t eeaddress, uint8_t data )
 
   delay(6);
 }
-uint8_t readEEPROM(uint16_t eeaddress )
-{
+uint8_t readEEPROM(uint16_t eeaddress ){
   uint8_t rdata = 0xFF;
 
   Wire.beginTransmission(SLAVE_ADDRESS);
@@ -205,4 +214,69 @@ uint8_t readEEPROM(uint16_t eeaddress )
   if (Wire.available()) rdata = Wire.read();
 
   return rdata;
+}
+//MQTT//////////////////////////////////////////////////////////////
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  //la sonda effettivamente non ha qualcosa da fare.....
+
+  //if (strcmp(topic, "/casa/esterno/caldaia/relay") == 0) {
+    //nc.relay((char)payload[0]);
+  //}
+  //for (int i = 0; i < length; i++) {
+  //  Serial.print((char)payload[i]);
+  //}
+  //Serial.println();
+}
+void reconnect() {
+	//if (!client.connected()) {
+		Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("MeteoLeo","sergio","donatella")) {
+      Serial.println("connected");
+
+      // Once connected, publish an announcement...
+      client.publish(logTopic, "ESP-01 meteo leo connesso");
+      // ... and resubscribe
+      //client.subscribe("/casa/esterno/caldaia/relay");
+			Serial.println("collegato a Mqtt");
+	    StaticJsonBuffer<300> JSONbuffer;
+	    JsonObject& JSONencoder = JSONbuffer.createObject();
+	    //JSONencoder["sensorType"] = "Hum";
+	    JSONencoder["Hum"] = humidityDHT22;
+			//JSONencoder["sensorType"] = "Temp";
+	 	 	JSONencoder["Temp"] = temperatureDHT22;
+			//JSONencoder["sensorType"] = "Pres";
+	    JSONencoder["Press"] = p0;
+	    char JSONmessageBuffer[100];
+	    JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+	    Serial.println(JSONmessageBuffer);
+
+	    if (client.publish(sensorsTopic, JSONmessageBuffer) == true) {
+	        Serial.println("Success sending message");
+	    } else {
+	        Serial.println("Error sending message");
+	    }
+    } else {
+
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(2000);
+
+    }
+  //}
+  //return check;
+}
+void printMqtt(){
+	client.disconnect();
+	Serial.println("entro printMqtt");
+	if (!client.connected()) {
+		Serial.println("provo reconnect");
+    reconnect();
+  }
+client.disconnect();
+
 }
