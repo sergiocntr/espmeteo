@@ -2,6 +2,7 @@
 Checkvoltage cv;
 //#include <TinyDebugSerial.h>
 // Get this from https://github.com/rambo/TinyWire
+//#include <Filters.h>
 #include "TinyWireS.h"
 //TinyDebugSerial mySerial= TinyDebugSerial();
 #define I2C_SLAVE_ADDRESS 0x02 // the 7-bit address (remember to change this when adapting this example)
@@ -12,7 +13,7 @@ Checkvoltage cv;
 #ifndef TWI_RX_BUFFER_SIZE
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
-int pinLed = 1; 
+int pinLed = 1;
 int watch_dog_counter = 100;
 volatile byte reg_position = 0;
 const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino
@@ -31,6 +32,9 @@ void loop(){
   if (watch_dog_counter>=100) {  // 90*8 sec =13 min : wait for timed out watchdog / flag is set when a watchdog timeout occurs
     watch_dog_counter=0;        // reset flag
     digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
+    tws_delay(20000); //aspetto 20 secondi che faccia la trasmissione
+    powerDownEsp(); // casomai spengo
+
   }
   TinyWireS_stop_check();
 }

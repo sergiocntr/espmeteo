@@ -5,6 +5,7 @@ aggiorna il voltaggio
 spegne ESP
 */
 //#include <avr/interrupt.h>
+//#include <avr/io.h>
 #define DEBUG
 #include "DHT.h"
 #include <Wire.h>
@@ -61,24 +62,29 @@ const char* logTopic ="/casa/esterno/terrazza_leo/log";
 
 void setup()
 {
+	WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
+	WiFi.forceSleepBegin();
+	delay(1);
 	Serial.begin(9600);
 	delay(500); 									// do tempo a Attiny di leggere la tensione
-	client.setServer(mqtt_server, 8883);
-  client.setCallback(callback);
+
 	Serial.println("OK");
-	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
+
 	Wire.begin(default_sda_pin, default_scl_pin);
 	uint8_t value = readEEPROM(nValuesAddr); //have we records stored in I2C ?
-	Serial.println("check = " + String(check) + ", records: " + String(value));
+	//Serial.println("check = " + String(check) + ", records: " + String(value));
 	if(value==255) {
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
+	requestSensorsValues();
+	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
 	if(check == 1 && value > 0) sendData(value); // if WIFI available and records stored, send them to server
 	//data section
-	requestSensorsValues();
-  if(check == 1){	//  if local WIFI connection OK send data without save to I2C
+	if(check == 1){	//  if local WIFI connection OK send data without save to I2C
 		printWEB(true); // send data to server (true = get time from web server (live record))
+		client.setServer(mqtt_server, 8883);
+	  client.setCallback(callback);
 		printMqtt();
 	}
   else{		//local WIFI connection KO
@@ -125,6 +131,8 @@ void requestSensorsValues(){
 uint8_t connLAN(){
   uint8_t check=0;
   WiFi.mode(WIFI_STA);
+	WiFi.forceSleepWake();
+	delay(1);
   WiFi.begin(ssid, password);
   WiFi.config(ip, gateway, subnet); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
   for (int i=0; i <= 5; i++){
@@ -132,7 +140,13 @@ uint8_t connLAN(){
       check = 1;
     delay(700);
   }
-	if (check == 0) WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
+	if (check == 0)
+	{
+		Serial.println("Vado a nanna---");
+		WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
+		WiFi.forceSleepBegin();
+    delay(1);
+	}
   return check;
 }
 void printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
