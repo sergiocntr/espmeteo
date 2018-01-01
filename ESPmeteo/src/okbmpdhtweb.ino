@@ -1,4 +1,5 @@
-//#define ALTITUDE 110.0 // Altitude
+
+
 void sensor_init(){
   dht.begin();						//DTH22 initialization
 	bmp.begin();

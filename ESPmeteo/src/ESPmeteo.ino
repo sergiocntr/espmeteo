@@ -1,16 +1,11 @@
-
-/*
-questo e' il codice che gira sull ESP meteo
-aggiorna il voltaggio
-spegne ESP
-*/
-//#include <avr/interrupt.h>
-//#include <avr/io.h>
 #define DEBUG
-#include "DHT.h"
 #include <Wire.h>
 #include <SPI.h>
+#include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
 #include <ESP8266WiFi.h>
 #include <I2C_Anything.h>
 #include <PubSubClient.h> //mqtt library
@@ -56,9 +51,9 @@ MeteoData met, retmet;
 
 PubSubClient client(c);
 const char* mqtt_server = "192.168.1.100";
-const char* sensorsTopic = "/casa/esterno/terrazza_leo/sensori";
-const char* inTopic ="/casa/esterno/terrazza_leo/input";
-const char* logTopic ="/casa/esterno/terrazza_leo/log";
+const char* sensorsTopic = "/casa/esterno/sensori";
+//const char* inTopic ="/casa/esterno/terrazza_leo/input";
+//const char* logTopic ="/casa/esterno/terrazza_leo/log";
 
 void setup()
 {
@@ -250,32 +245,23 @@ void reconnect() {
     // Attempt to connect
     if (client.connect("MeteoLeo","sergio","donatella")) {
       Serial.println("connected");
-
-      // Once connected, publish an announcement...
-      client.publish(logTopic, "ESP-01 meteo leo connesso");
-      // ... and resubscribe
-      //client.subscribe("/casa/esterno/caldaia/relay");
-			Serial.println("collegato a Mqtt");
-	    StaticJsonBuffer<300> JSONbuffer;
-	    JsonObject& JSONencoder = JSONbuffer.createObject();
-	    //JSONencoder["sensorType"] = "Hum";
-	    JSONencoder["Hum"] = humidityDHT22;
-			//JSONencoder["sensorType"] = "Temp";
-	 	 	JSONencoder["Temp"] = temperatureDHT22;
-			//JSONencoder["sensorType"] = "Pres";
-	    JSONencoder["Press"] = p0;
-	    char JSONmessageBuffer[100];
-	    JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-	    Serial.println(JSONmessageBuffer);
-
-	    if (client.publish(sensorsTopic, JSONmessageBuffer) == true) {
-	        Serial.println("Success sending message");
-	    } else {
-	        Serial.println("Error sending message");
-	    }
-    } else {
-
-      Serial.print("failed, rc=");
+			char Humbuffer[6],Tempbuffer[6],Pressbuffer[10];
+		  StaticJsonBuffer<300> JSONbuffer;
+		  JsonObject& JSONencoder = JSONbuffer.createObject();
+		  dtostrf(humidityDHT22, 4, 1, Humbuffer);
+			dtostrf(temperatureDHT22, 4, 1, Tempbuffer);
+			dtostrf(p0, 4, 1, Pressbuffer);
+		  JSONencoder["topic"] = "Terrazza";
+		  JSONencoder["Hum"] = Humbuffer;
+		  JSONencoder["Temp"] = Tempbuffer;
+			JSONencoder["Press"] = Pressbuffer;
+		  char JSONmessageBuffer[100];
+		  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+		  client.publish(sensorsTopic, JSONmessageBuffer);
+    }
+		else
+		{
+			Serial.print("failed, rc=");
       Serial.print(client.state());
       Serial.println(" try again in 5 seconds");
       delay(2000);
