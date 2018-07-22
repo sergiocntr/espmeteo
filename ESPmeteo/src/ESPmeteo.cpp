@@ -1,62 +1,9 @@
-#define DEBUG
-#include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_Sensor.h>
-#include <Adafruit_BMP280.h>
-#include <Adafruit_Sensor.h>
-#include <DHT.h>
-#include <DHT_U.h>
-#include <ESP8266WiFi.h>
-#include <I2C_Anything.h>
-#include <PubSubClient.h> //mqtt library
-#include <ArduinoJson.h>
-//ESP-01 SDA - SCL pin
-static int default_sda_pin = 0;
-static int default_scl_pin = 2;
-//WIFI stuff
-const char* ssid     = "TIM-23836387";
-const char* password = "51vEBuMvmALxNQHVIHQKkn52";
-const char* webpass ="admin";
-WiFiClient c;
-IPAddress ip(192, 168, 1, 211); //Node static IP
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
-// data web host Settings
-#define host "www.developteamgold.altervista.org"
-const int httpPort = 80;
-//voltage stuff
-uint16_t voltage = 0;  //voltage get from attiny
-uint8_t dati[2];       // attiny low and high voltage byte
-//BMP stuff
-Adafruit_BMP280 bmp; // I2C
-double p0;
-//DHT22 stuff
-#define DHTPIN 3  //GPIO1 (Rx) what digital pin we're connected to
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-DHT dht(DHTPIN, DHTTYPE);
-float humidityDHT22,temperatureDHT22,Humidex,dp;
-//I2C eeprom stuff
-const int SLAVE_ADDRESS = 0X50; //classic I2C EEPROM address
-const uint16_t nValuesAddr = 0x0FFF; //address on I2C EEPROM ,we store there how many reecords we have
-//meteo data object + battery
-struct meteoData{
-	float humidityDHT22;
-	float temperatureDHT22;
-	double externalPressure;
-  int battery;
-};
-typedef struct meteoData MeteoData;
-MeteoData met, retmet;
-
-
-PubSubClient client(c);
-const char* mqtt_server = "192.168.1.100";
-const char* sensorsTopic = "/casa/esterno/sensori";
-//const char* inTopic ="/casa/esterno/terrazza_leo/input";
-//const char* logTopic ="/casa/esterno/terrazza_leo/log";
+//#define DEBUG
+#include <ESPmeteo.h>
 
 void setup()
 {
+delay(3000);
 	WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
 	WiFi.forceSleepBegin();
 	delay(1);
@@ -73,6 +20,7 @@ void setup()
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
 	requestSensorsValues();
+	Serial.println("OK values");
 	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
 	if(check == 1 && value > 0) sendData(value); // if WIFI available and records stored, send them to server
 	//data section
@@ -100,6 +48,8 @@ void loop(){
   Serial.println("spegniti");
   delay(500);
 	Wire.begin(default_sda_pin, default_scl_pin);
+	delay(500);
+
   Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
@@ -115,11 +65,11 @@ void requestSensorsValues(){
   voltage = (dati[1]<<8) | dati[0];
   Serial.println("dati[1] : " + String(dati[1]) + "dati[0] : " + String(dati[0]));
   Serial.println("voltage : " + String(voltage));
-	sensor_init();
-  bm();									// read BMP080 values
+	//sensor_init();
+  bm(temperatureDHT22,humidityDHT22,p0);									// read BMP080 values
   Serial.println("recuperata pressione : " + String(p0));
-  dh();									//read DHT22 values
-  Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
+  //dh();									//read DHT22 values
+  //Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
 
 }
 //WIFI
