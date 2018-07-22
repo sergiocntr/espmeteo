@@ -95,26 +95,32 @@ uint8_t connLAN(){
   return check;
 }
 void printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
-  if (c.connect(host, httpPort))
-  {
-		double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
-	  dp = 243.5 * gamma / (17.62 - gamma);
-	  double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
-		Serial.println("connected");
-    // Make a HTTP request:
-    String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
-    +"&&pwd=" + webpass +
-    +"&&hum_out=" + String(humidityDHT22) +
-    +"&&rel_pressure=" + String(p0) +
-    +"&&dwew=" + String(dp) +
-    +"&&humidex=" + String(Humidex) +
-    +"&&voltage=" + String(voltage) +
-		+"&&time=" + String(timeAvailable) +
-    + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
-    Serial.println(s);
-    c.println(s);
-
-  }
+	double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
+	dp = 243.5 * gamma / (17.62 - gamma);
+	double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
+	Serial.println("connected");
+	// Make a HTTP request:
+	String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
+	+"&&pwd=" + webpass +
+	+"&&hum_out=" + String(humidityDHT22) +
+	+"&&rel_pressure=" + String(p0) +
+	+"&&dwew=" + String(dp) +
+	+"&&humidex=" + String(Humidex) +
+	+"&&voltage=" + String(voltage) +
+	+"&&time=" + String(timeAvailable) +
+	+ " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+	for (int i = 0; i < 10; i++) {
+		delay(1000);
+		if (c.connect(host, httpPort))
+	  {
+			c.print(s);
+			if (c.available())
+	      {
+	        String line = c.readStringUntil('\n');
+	        if(line.compareTo("OK")) break;
+	      }
+			}
+		}
 }
 //I2C EEPROM
 void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server

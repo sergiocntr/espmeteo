@@ -6,7 +6,7 @@
 #include <PubSubClient.h> //mqtt library
 #include <ArduinoJson.h>
 #include <okbmpdhtweb.h>
-
+//#include <ArduinoOTA.h>
 WiFiClient c;
 PubSubClient client(c);
 void setup();
