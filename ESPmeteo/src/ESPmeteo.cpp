@@ -1,59 +1,106 @@
-//#define DEBUG
-#include <ESPmeteo.h>
-
+#include "ESPmeteo.h"
+//#define DEBUGMIO
 void setup()
 {
-delay(3000);
-	WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
-	WiFi.forceSleepBegin();
-	delay(1);
+	#ifdef DEBUGMIO
 	Serial.begin(9600);
-	delay(500); 									// do tempo a Attiny di leggere la tensione
-
-	Serial.println("OK");
-
+  //setupOTA();
+	delay(5000);
+	#endif
+	WiFi.mode(WIFI_OFF);
+	WiFi.forceSleepBegin();
+	delay(100);
+	DEBUG_PRINT("Eccoci!");
+	DEBUG_PRINT("eccodi cacchio");
+	client.setServer(mqtt_server, 8883);
+  client.setCallback(callback);
 	Wire.begin(default_sda_pin, default_scl_pin);
-	uint8_t value = readEEPROM(nValuesAddr); //have we records stored in I2C ?
-	//Serial.println("check = " + String(check) + ", records: " + String(value));
+	//have we records stored in I2C ?
+	uint8_t value = readEEPROM(nValuesAddr);
 	if(value==255) {
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
+	DEBUG_PRINT("ci sono ");
+	//READ SENSORS
 	requestSensorsValues();
-	Serial.println("OK values");
+	DEBUG_PRINT("presi valori");
+	//CHECK INTERNET CONNECTION
 	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
-	if(check == 1 && value > 0) sendData(value); // if WIFI available and records stored, send them to server
+	if(check==0){
+		DEBUG_PRINT("NO LAN memorizzo e chiudo");
+		storeData(value);
+		shutDownNow();
+	}
+	DEBUG_PRINT("conn lan ok! ");
+
+  check = connINTERNET(c); 		//check == 1 -> connected to INTERNET
+	//if WIFI available and records stored, send them to server
+	if(check == 1 && value > 0)
+	{
+		DEBUG_PRINT("internet ok -> invio dati memorizzati " + String(value));
+		sendData(value);
+	}
+
 	//data section
 	if(check == 1){	//  if local WIFI connection OK send data without save to I2C
-		printWEB(true); // send data to server (true = get time from web server (live record))
-		client.setServer(mqtt_server, 8883);
-	  client.setCallback(callback);
+		DEBUG_PRINT("internet ok -> mando dati live");
+    printWEB(true); // send data to server (true = get time from web server (live record))
+		//delay(1000);
+		DEBUG_PRINT("1");
+		reconnect();
+		DEBUG_PRINT("2");
+		//smartDelay(100);
+		//client.loop();
+		DEBUG_PRINT("3");
 		printMqtt();
+		client.disconnect();
+		delay(100);
+		//setup();
+		//shutDownNow();
+	}else
+	{
+		DEBUG_PRINT("NO LAN memorizzo e chiudo");
+		//storeData(value);
+		//shutDownNow();
 	}
-  else{		//local WIFI connection KO
-		uint16_t availAddress = 32 * value;	//MeteoData is 24 bytes long so..
-    //compile struct object with current data
-    met.battery = voltage;
-    met.humidityDHT22 = humidityDHT22;
-    met.temperatureDHT22 = temperatureDHT22;
-    met.externalPressure = p0;
-		writeStructEEPROM(availAddress);	//write struct on I2C eeprom
-		value++; //add record's nr
-		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
-  }
-
 }
-
-void loop(){
-  Serial.println("spegniti");
+void smartDelay(unsigned long ms){
+  unsigned long start = millis();
+  do
+  {
+    client.loop();
+		//ArduinoOTA.handle();
+  } while (millis() - start < ms);
+}
+void callback(char* topic, byte* payload, unsigned int length) {
+  // handle message arrived
+}
+void storeData(uint8_t nrRecords){
+	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
+	//compile struct object with current data
+	met.battery = voltage;
+	met.humidityDHT22 = humidityDHT22;
+	met.temperatureDHT22 = temperatureDHT22;
+	met.externalPressure = p0;
+	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
+	nrRecords++; //add record's nr
+	writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
+}
+void shutDownNow(){
+	DEBUG_PRINT("spegniti");
   delay(500);
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(500);
-
-  Wire.beginTransmission (2);
+	Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
+}
+void loop(){
 
+
+  shutDownNow();
+	delay(3000);
 }
 //data
 void requestSensorsValues(){
@@ -63,42 +110,32 @@ void requestSensorsValues(){
     dati[i] = Wire.read();    // receive a byte as character
   }
   voltage = (dati[1]<<8) | dati[0];
-  Serial.println("dati[1] : " + String(dati[1]) + "dati[0] : " + String(dati[0]));
-  Serial.println("voltage : " + String(voltage));
-	//sensor_init();
   bm(temperatureDHT22,humidityDHT22,p0);									// read BMP080 values
-  Serial.println("recuperata pressione : " + String(p0));
-  //dh();									//read DHT22 values
-  //Serial.println("recuperata temperatura/um  : " + String(temperatureDHT22));
-
+	retmet.battery = voltage;
+	retmet.humidityDHT22 = humidityDHT22;
+	retmet.temperatureDHT22 = temperatureDHT22;
+	retmet.externalPressure = p0;
 }
 //WIFI
-uint8_t connLAN(){
-  uint8_t check=0;
-  WiFi.mode(WIFI_STA);
-	WiFi.forceSleepWake();
-	delay(1);
-  WiFi.begin(ssid, password);
-  WiFi.config(ip, gateway, subnet); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
-  for (int i=0; i <= 5; i++){
-    if(WiFi.status() == WL_CONNECTED)
-      check = 1;
-    delay(700);
-  }
-	if (check == 0)
-	{
-		Serial.println("Vado a nanna---");
-		WiFi.mode(WIFI_OFF); //energy saving mode if local WIFI isn't connected
-		WiFi.forceSleepBegin();
-    delay(1);
-	}
-  return check;
-}
+
 void printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
+	if(!timeAvailable)
+	{
+		voltage = met.battery;
+    humidityDHT22 = met.humidityDHT22 ;
+    temperatureDHT22 = met.temperatureDHT22 ;
+    p0 = met.externalPressure ;
+	}else
+	{
+		voltage = retmet.battery;
+		humidityDHT22 = retmet.humidityDHT22 ;
+		temperatureDHT22 = retmet.temperatureDHT22 ;
+		p0 = retmet.externalPressure ;
+	}
 	double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
 	dp = 243.5 * gamma / (17.62 - gamma);
 	double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
-	Serial.println("connected");
+	//DEBUG_PRINT("connected");
 	// Make a HTTP request:
 	String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
 	+"&&pwd=" + webpass +
@@ -110,129 +147,85 @@ void printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 	+"&&time=" + String(timeAvailable) +
 	+ " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
 	for (int i = 0; i < 10; i++) {
-		delay(1000);
-		if (c.connect(host, httpPort))
-	  {
-			c.print(s);
-			if (c.available())
-	      {
-	        String line = c.readStringUntil('\n');
-	        if(line.compareTo("OK")) break;
-	      }
-			}
+		if (c.connect(host, httpPort)) break;
+		smartDelay(500);
+	}
+	c.print(s);
+	c.flush();
+	unsigned long timeout = millis();
+	while (c.available() == 0){
+		if (millis() - timeout > 5000){
+			//printMqttLog("timeout OK dal server");
+			DEBUG_PRINT("no risposta da meteofeletto");
+			return;
 		}
+	}
+	String line = c.readStringUntil('\n');
+	if(line.compareTo("OK")) printMqttLog("inviato dati sul server: OK");
+	else printMqttLog("inviato dati sul server: FAIL");
+
 }
-//I2C EEPROM
 void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
 	for (int i = 0 ; i <= (nrRecords - 1); i++){
 		readStructEEPROM(32 * i); // read I2C eeprom
-		voltage = met.battery;
-    humidityDHT22 = met.humidityDHT22 ;
-    temperatureDHT22 = met.temperatureDHT22 ;
-    p0 = met.externalPressure ;
 		printWEB(false);// false add time from last web server record (recorded record)
 	}
 	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 }
-byte writeStructEEPROM(unsigned int addr){
-	byte err;
-	Wire.beginTransmission(SLAVE_ADDRESS);
-	Wire.write ((byte) (addr >> 8));    // high order byte
-	Wire.write ((byte) (addr & 0xFF));  // low-order byte
-	I2C_writeAnything (met);
-	err = Wire.endTransmission ();
-	delay(6);  // needs 5ms for page write
-	return err;  // cannot write to device
-}
-byte readStructEEPROM(unsigned int addr){
-  byte err;
-	Wire.beginTransmission (SLAVE_ADDRESS);
-  Wire.write ((byte) (addr >> 8));    // high order byte
-  Wire.write ((byte) (addr & 0xFF));  // low-order byte
-  err = Wire.endTransmission ();
-	// initiate blocking read into internal buffer
-  Wire.requestFrom (SLAVE_ADDRESS, sizeof(met));
-
-  I2C_readAnything (met);
-
-  return err;
-}
-void writeEEPROM(uint16_t eeaddress, uint8_t data ){
-  Wire.beginTransmission(SLAVE_ADDRESS);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
-
-  delay(6);
-}
-uint8_t readEEPROM(uint16_t eeaddress ){
-  uint8_t rdata = 0xFF;
-
-  Wire.beginTransmission(SLAVE_ADDRESS);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.endTransmission();
-
-  Wire.requestFrom(SLAVE_ADDRESS,1);
-
-  if (Wire.available()) rdata = Wire.read();
-
-  return rdata;
-}
 //MQTT//////////////////////////////////////////////////////////////
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  //la sonda effettivamente non ha qualcosa da fare.....
+void printMqtt(){
+		StaticJsonBuffer<300> JSONbuffer;
+		JsonObject& JSONencoder = JSONbuffer.createObject();
+		//dtostrf(humidityDHT22, 4, 1, Humbuffer);
+		//dtostrf(temperatureDHT22, 4, 1, Tempbuffer);
+		//dtostrf(p0, 4, 1, Pressbuffer);
+		JSONencoder["topic"] = "Terrazza";
+		JSONencoder["Hum"] = String(humidityDHT22);
+		JSONencoder["Temp"] = String(temperatureDHT22);
+		JSONencoder["Press"] = String(p0);
+		char JSONmessageBuffer[100];
+		JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+		//reconnect();
+		client.publish(sensorsTopic, JSONmessageBuffer,true);
+		DEBUG_PRINT("mandato dati a mqtt");
 
-  //if (strcmp(topic, "/casa/esterno/caldaia/relay") == 0) {
-    //nc.relay((char)payload[0]);
-  //}
-  //for (int i = 0; i < length; i++) {
-  //  Serial.print((char)payload[i]);
-  //}
-  //Serial.println();
+}
+void printMqttLog(String message){
+	StaticJsonBuffer<300> JSONbuffer;
+	JsonObject& JSONencoder = JSONbuffer.createObject();
+	JSONencoder["topic"] = "Log";
+	JSONencoder["Log"] = message;
+	char JSONmessageBuffer[100];
+	JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+	//reconnect();
+	client.publish(sensorsTopic, JSONmessageBuffer,true);
+	DEBUG_PRINT("pubblicato log! " + message);
+
 }
 void reconnect() {
-	//if (!client.connected()) {
-		Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("MeteoLeo","sergio","donatella")) {
-      Serial.println("connected");
-			char Humbuffer[6],Tempbuffer[6],Pressbuffer[10];
-		  StaticJsonBuffer<300> JSONbuffer;
-		  JsonObject& JSONencoder = JSONbuffer.createObject();
-		  dtostrf(humidityDHT22, 4, 1, Humbuffer);
-			dtostrf(temperatureDHT22, 4, 1, Tempbuffer);
-			dtostrf(p0, 4, 1, Pressbuffer);
-		  JSONencoder["topic"] = "Terrazza";
-		  JSONencoder["Hum"] = Humbuffer;
-		  JSONencoder["Temp"] = Tempbuffer;
-			JSONencoder["Press"] = Pressbuffer;
-		  char JSONmessageBuffer[100];
-		  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-		  client.publish(sensorsTopic, JSONmessageBuffer);
-    }
-		else
+			for (char i = 0; i < 10; i++)
 		{
-			Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      delay(2000);
-
-    }
-  //}
-  //return check;
-}
-void printMqtt(){
-	client.disconnect();
-	Serial.println("entro printMqtt");
-	if (!client.connected()) {
-		Serial.println("provo reconnect");
-    reconnect();
-  }
-client.disconnect();
-
-}
+			Serial.print("Attempting MQTT connection...");
+			//(clientID, username, password, willTopic, willQoS, willRetain, willMessage)
+			if (client.connect(nodeID,mqttUser,mqttPass))
+			{
+				Serial.println("connected");
+				//conn = True;
+				client.publish(logTopic, "NodeMCU Caldaia connesso");
+				//client.subscribe(riscaldaTopic);
+				client.loop();
+				//client.subscribe(acquaTopic);
+				//client.loop();
+				Serial.print("OOOOOKKKK, rc=");
+				Serial.print(client.state());
+				break;
+			}
+			else
+			{
+				Serial.print("failed, rc=");
+				Serial.print(client.state());
+				Serial.println(" try again in 5 seconds");
+				smartDelay(50);
+			}
+		}
+	}
