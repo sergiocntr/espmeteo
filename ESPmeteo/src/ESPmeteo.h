@@ -1,7 +1,6 @@
 #ifndef espmeteo_h
 #define espmeteo_h
 #include <cxonfig.h>
-#include <ota.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include "I2C_Anything.h"
@@ -13,14 +12,14 @@
 #include "debugutils.h"
 //#include <ArduinoOTA.h>
 WiFiClient c;
-//PubSubClient client(mqtt_server, mqtt_port, c);
-PubSubClient client(c);
+PubSubClient client(mqtt_server, mqtt_port, c);
+//PubSubClient client(c);
 void setup();
 
 void loop();
 //WIFI
 uint8_t connLAN();
-void printWEB(bool timeAvailable);
+bool printWEB(bool timeAvailable);
 void requestSensorsValues();
 void sendData(uint8_t nrRecords);
 void smartDelay(unsigned long ms);

@@ -16,7 +16,7 @@ const char* host = "www.developteamgold.altervista.org";
 const int httpPort = 80;
 //voltage stuff
 //mqtt
-const char* nodeID="Met";
+const char* nodeID="sergino";
 const char* mqtt_server = "192.168.1.100";
 const uint16_t mqtt_port = 8883;
 const char* mqttUser ="sergio";
