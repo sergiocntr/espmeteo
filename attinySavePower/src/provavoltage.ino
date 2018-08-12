@@ -51,7 +51,6 @@ void requestEvent()
 }
 void receiveEvent(uint8_t howMany)
 {
-//powerDownEsp();
     if (howMany < 1)
     {
         // Sanity-check

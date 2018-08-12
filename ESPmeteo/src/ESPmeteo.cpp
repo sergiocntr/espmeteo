@@ -91,9 +91,7 @@ void shutDownNow(){
   Wire.endTransmission(true);
 }
 void loop(){
-
-
-  shutDownNow();
+	shutDownNow();
 	delay(3000);
 }
 //data
@@ -129,7 +127,6 @@ bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 	double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
 	dp = 243.5 * gamma / (17.62 - gamma);
 	double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
-	//DEBUG_PRINT("connected");
 	// Make a HTTP request:
 	String s =String("GET /meteofeletto/swpi_logger.php?temp_out=" + String(temperatureDHT22) +
 	+"&&pwd=" + webpass +
@@ -153,6 +150,7 @@ bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 			DEBUG_PRINT("no risposta da meteofeletto");
 			return false;
 		}
+		delay(250);
 	}
 	String line = c.readStringUntil('\n');
 	if(line.compareTo("OK")) return true;
@@ -168,20 +166,16 @@ void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web se
 }
 //MQTT//////////////////////////////////////////////////////////////
 void printMqtt(){
-		StaticJsonBuffer<300> JSONbuffer;
-		JsonObject& JSONencoder = JSONbuffer.createObject();
-		//dtostrf(humidityDHT22, 4, 1, Humbuffer);
-		//dtostrf(temperatureDHT22, 4, 1, Tempbuffer);
-		//dtostrf(p0, 4, 1, Pressbuffer);
-		JSONencoder["topic"] = "Terrazza";
-		JSONencoder["Hum"] = humidityDHT22;
-		JSONencoder["Temp"] = temperatureDHT22;
-		JSONencoder["Press"] = p0;
-		char JSONmessageBuffer[100];
-		JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-		//reconnect();
-		client.publish(sensorsTopic, JSONmessageBuffer,true);
-		DEBUG_PRINT("mandato dati a mqtt");
+	StaticJsonBuffer<300> JSONbuffer;
+	JsonObject& JSONencoder = JSONbuffer.createObject();
+	JSONencoder["topic"] = "Terrazza";
+	JSONencoder["Hum"] = humidityDHT22;
+	JSONencoder["Temp"] = temperatureDHT22;
+	JSONencoder["Press"] = p0;
+	char JSONmessageBuffer[100];
+	JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+	client.publish(sensorsTopic, JSONmessageBuffer,true);
+	DEBUG_PRINT("mandato dati a mqtt");
 
 }
 void printMqttLog(String message){
@@ -194,86 +188,52 @@ void printMqttLog(String message){
 	//reconnect();
 	client.publish(sensorsTopic, JSONmessageBuffer,true);
 	DEBUG_PRINT("pubblicato log! " + message);
-
 }
 void reconnect() {
-
-		//if (!client.connected()) {
-			Serial.print("Attempting MQTT connection...");
-	    // Attempt to connect
-	    if (client.connect("MLeo","sergio","donatella")) {
-	      Serial.println("connected");
-
-	      // Once connected, publish an announcement...
-	      client.publish(logTopic, "ESP-01 meteo leo connesso");
-
-	    } else {
-
-	      Serial.print("failed, rc=");
-	      Serial.print(client.state());
-	      Serial.println(" try again in 5 seconds");
-	      delay(2000);
-
-	    }
-	  //}
-	  //return check;
-	}
-	/*
-			for (char i = 0; i < 10; i++)
-		{
-			DEBUG_PRINT("Attempting MQTT connection...");
-			//(clientID, username, password, willTopic, willQoS, willRetain, willMessage)
-			if (client.connect(nodeID,mqttUser,mqttPass))
-			{
-				DEBUG_PRINT("connected");
-				//conn = True;
-				client.publish(logTopic, "sonda Leo connessa");
-				client.subscribe("inTopic");
-				//client.loop();
-				//client.subscribe(acquaTopic);
-				//smartDelay(100);
-				DEBUG_PRINT("OOOOOKKKK, rc=");
-				DEBUG_PRINT(client.state());
-				break;
-			}
-			else
-			{
-				switch (client.state())
-     {
-        case -4:
-          DEBUG_PRINT("MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time");
-          break;
-        case -3:
-          DEBUG_PRINT("MQTT_CONNECTION_LOST - the network connection was broken");
-          break;
-        case -2:
-          DEBUG_PRINT("MQTT_CONNECT_FAILED - the network connection failed");
-          break;
-        case -1:
-          DEBUG_PRINT("MQTT_DISCONNECTED - the client is disconnected cleanly");
-          break;
-        case 0:
-          break;
-        case 1:
-          DEBUG_PRINT("MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT");
-          break;
-        case 2:
-          DEBUG_PRINT("MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier");
-          break;
-        case 3:
-          DEBUG_PRINT("MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection");
-          break;
-        case 4:
-          DEBUG_PRINT("MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected");
-          break;
-        case 5:
-          DEBUG_PRINT("MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect");
-          break;
-        default:
-          Serial.print("failed, rc=");
-          Serial.println(client.state());
-          break;
-     }
+	for (char i = 0; i < 10; i++){
+		DEBUG_PRINT("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("MLeo","sergio","donatella")) {
+      DEBUG_PRINT("connected");
+			// Once connected, publish an announcement...
+      client.publish(logTopic, "ESP-01 meteo leo connesso");
+			break;
+			}else {
+				switch (client.state()){
+	        case -4:
+	          DEBUG_PRINT("MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time");
+	          break;
+	        case -3:
+	          DEBUG_PRINT("MQTT_CONNECTION_LOST - the network connection was broken");
+	          break;
+	        case -2:
+	          DEBUG_PRINT("MQTT_CONNECT_FAILED - the network connection failed");
+	          break;
+	        case -1:
+	          DEBUG_PRINT("MQTT_DISCONNECTED - the client is disconnected cleanly");
+	          break;
+	        case 0:
+	          break;
+	        case 1:
+	          DEBUG_PRINT("MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT");
+	          break;
+	        case 2:
+	          DEBUG_PRINT("MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier");
+	          break;
+	        case 3:
+	          DEBUG_PRINT("MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection");
+	          break;
+	        case 4:
+	          DEBUG_PRINT("MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected");
+	          break;
+	        case 5:
+	          DEBUG_PRINT("MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect");
+	          break;
+	        default:
+	          Serial.print("failed, rc=");
+	          Serial.println(client.state());
+	          break;
+	     }
 			}
 		}
-	}*/
+	}
