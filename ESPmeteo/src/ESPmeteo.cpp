@@ -29,16 +29,15 @@ void setup()
 	}
 	DEBUG_PRINT("conn lan ok! ");
 	check = connINTERNET(c); 		//check == 1 -> connected to INTERNET
-	//if WIFI available and records stored, send them to server
+	//if INTERNET available and records stored, send them first to server...
 	if(check == 1 && value > 0)
 	{
 		DEBUG_MQTT(value);
 		DEBUG_PRINT("internet ok -> invio dati memorizzati " + String(value));
 		sendData(value);
 	}
-
-	//data section
-	if(check == 1){	//  if local WIFI connection OK send data without save to I2C
+	//  ..then send live data.
+	if(check == 1){
 		DEBUG_PRINT("internet ok -> mando dati live");
 		DEBUG_PRINT("1");
 		reconnect();
@@ -50,7 +49,7 @@ void setup()
 		client.loop();
 	}else
 	{
-		DEBUG_PRINT("NO INTERNET memorizzo e chiudo");
+		DEBUG_PRINT("NO INTERNET!! STORING VALUE ON EEPROM");
 		storeData(value);
 	}
 }
@@ -63,7 +62,7 @@ void smartDelay(unsigned long ms){
   } while (millis() - start < ms);
 }
 void callback(char* topic, byte* payload, unsigned int length) {
-  // handle message arrived
+  // nothing
 }
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
@@ -77,6 +76,7 @@ void storeData(uint8_t nrRecords){
 	writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
 }
 void shutDownNow(){
+	//this tell to attiny to power down ESP
 	DEBUG_PRINT("spegniti");
 	DEBUG_MQTT("spegniti");
   delay(500);
@@ -90,10 +90,8 @@ void loop(){
 	shutDownNow();
 	delay(3000);
 }
-//data
 void requestSensorsValues(){
-
-  for (int i=0; i <= 2; i++){
+	for (int i=0; i <= 2; i++){
     Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
     dati[i] = Wire.read();    // receive a byte as character
   }
@@ -104,8 +102,6 @@ void requestSensorsValues(){
 	retmet.temperatureDHT22 = temperatureDHT22;
 	retmet.externalPressure = p0;
 }
-//WIFI
-
 bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 	if(!timeAvailable)
 	{
@@ -122,7 +118,7 @@ bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 		temperatureDHT22 = retmet.temperatureDHT22 ;
 		p0 = retmet.externalPressure ;
 	}
-	if((isnan(p0) | voltage > 5000)) return true;
+	if((isnan(p0)) | (voltage > 5000)) return true;
 	double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
 	dp = 243.5 * gamma / (17.62 - gamma);
 	double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
@@ -135,24 +131,24 @@ bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
 	+"&voltage=" + String(voltage) +
 	+"&time=" + String(timeAvailable);
 
-http.begin(post_server);
-http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-int httpResponseCode = http.POST(s);
-if(httpResponseCode>0){
+	http.begin(post_server);
+	http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+	int httpResponseCode = http.POST(s);
+	if(httpResponseCode>0){
 
-  String response = http.getString();                       //Get the response to the request
+	  String response = http.getString();                       //Get the response to the request
 
-  DEBUG_PRINT(httpResponseCode);   //Print return code
-  DEBUG_PRINT(response);           //Print request answer
+	  DEBUG_PRINT(httpResponseCode);   //Print return code
+	  DEBUG_PRINT(response);           //Print request answer
 
- }else{
+	 }else{
 
-  DEBUG_PRINT("Error on sending POST: ");
-  DEBUG_PRINT(httpResponseCode);
+	  DEBUG_PRINT("Error on sending POST: ");
+	  DEBUG_PRINT(httpResponseCode);
 
- }
- http.end();  //Free resources
- return true;
+	 }
+ 	http.end();  //Free resources
+ 	return true;
 }
 void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
 	for (int i = 0 ; i <= (nrRecords - 1); i++){
@@ -160,7 +156,11 @@ void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web se
 		printMqttLog("mando dati registrati record " + String(i));
 		DEBUG_PRINT("mando dati registrati record " + String(i));
 		DEBUG_MQTT("mando dati registrati record " + String(i));
-		printWEB(false);// false add time from last web server record (recorded record)
+		for (byte s = 0; s < 4; s++) {
+			// try few times to send data
+			if(printWEB(false)) break;;
+			delay(10);
+		}
 		delay(10);
 	}
 	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
