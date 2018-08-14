@@ -32,8 +32,8 @@ void loop(){
   if (watch_dog_counter>=100) {  // 90*8 sec =13 min : wait for timed out watchdog / flag is set when a watchdog timeout occurs
     watch_dog_counter=0;        // reset flag
     digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
-    tws_delay(20000); //aspetto 20 secondi che faccia la trasmissione
-    powerDownEsp(); // casomai spengo
+    //tws_delay(20000); //aspetto 20 secondi che faccia la trasmissione
+    //powerDownEsp(); // casomai spengo
 
   }
   TinyWireS_stop_check();
