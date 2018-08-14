@@ -1,7 +1,0 @@
-per memorizzare i dati nella eeprom mettiamo una cella dove scriviamo se si sono scritti i dati
-es nella 0x00 se c'e' 0 vuol dire che e' vuota se c'e' 1 vuol dire che sis osno scritti dei dati.
-Quando cerca di connetersi e si connette se c'e' 0 vuol dire che e' tutto ok
-se c'e' 1 vuol dire che ci sono dei dati salvati e bisogna spedirli,poi mette 0 e scrive tutti 0x00 nelle celle
-Quando deve spedire i dati spedisce fino a che non c'e' 0x00 nelle celle.
-
-altrimenti in una cella specifica mettiamo il numero di registrazioni effettuate. La memoria permette 1 milione di scritture cioe' 7 milioni di minuti..circa 320 anni
