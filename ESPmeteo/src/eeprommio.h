@@ -1,7 +1,5 @@
 #ifndef eeprommio_h
 #define eeprommio_h
-//#include <I2C_Anything.h>
-//I2C EEPROM
 byte writeStructEEPROM(unsigned int addr){
 	byte err;
 	Wire.beginTransmission(SLAVE_ADDRESS);

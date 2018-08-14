@@ -7,6 +7,7 @@ static int default_scl_pin = 2;
 const char* ssid     = "********";
 const char* password = "********";
 const char* webpass ="********";
+//LOCAL IP ADDRESS
 #include <ESP8266WiFi.h>
 IPAddress ip(192, 168, 1, 216); //Node static IP
 IPAddress gateway(192, 168, 1, 1);
@@ -17,8 +18,8 @@ const int httpPort = 80;
 //voltage stuff
 //mqtt
 const char* nodeID="*******";
-const char* mqtt_server = "192.168.1.100";
-const uint16_t mqtt_port = 8883;
+const char* mqtt_server = "*****";
+const uint16_t mqtt_port = ****;
 const char* mqttUser ="********";
 const char* mqttPass ="********";
 const char* sensorsTopic = "**********";
@@ -40,7 +41,4 @@ struct meteoData{
 };
 typedef struct meteoData MeteoData;
 MeteoData met, retmet;
-
-//const char* mqtt_server = "192.168.1.100";
-
 #endif

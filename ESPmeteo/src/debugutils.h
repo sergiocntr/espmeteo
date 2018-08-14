@@ -1,6 +1,7 @@
 #ifndef DEBUGUTILS_H
 #define DEBUGUTILS_H
 #include <Arduino.h>
+//*****ENABLE FOR DEBUG
 //#define DEBUGMIO
 //#define DEBUGMQTT
   #ifdef DEBUGMIO
