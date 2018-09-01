@@ -3,7 +3,7 @@ visit http://www.developteamgold.altervista.org/meteofeletto/swpi_dashboard.1.ph
 
 + powered by solar panel (description to do)
 + energy save mode (attiny85 drive the esp-01 module)
-+ save on ext Eeprom 24LS32 meteo data when internet connection is not available
++ save on ext Eeprom 24LC32 meteo data when internet connection is not available
 
 Library Dependency Graph for ESP-01 sketch
 |-- <Adafruit BMP280 Library> v1.0.2 
