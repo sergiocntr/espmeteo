@@ -1,6 +1,11 @@
 #ifndef espmeteo_h
 #define espmeteo_h
+#include "debugutils.h"
 #include <cxonfig.h>
+#include "topic.h"
+#include "password.h"
+//#include "myFunctions.h"
+#include "myIP.h"
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -8,24 +13,18 @@
 #include <PubSubClient.h> //mqtt library
 #include <ArduinoJson.h>
 #include "okbmpdhtweb.h"
-#include "wifimio.h"
 #include "eeprommio.h"
-#include "debugutils.h"
-#include <math.h>
-//#define DEBUGMIO
-//#define DEBUGMQTT
 HTTPClient http;
 WiFiClient c;
-PubSubClient client(mqtt_server, mqtt_port, c);
-uint8_t connLAN();
-bool printWEB(bool timeAvailable);
+PubSubClient client(c);
+IPAddress ip;
+const char* mqttID;
+void reconnect();
+bool printWEBJSON(uint8_t records);
 void requestSensorsValues();
-void sendData(uint8_t nrRecords);
 void smartDelay(unsigned long ms);
-void callback(char* topic, byte* payload, unsigned int length);
-void printMqtt();
-void printMqttLog(String message);
+void sendThing();
 void storeData(uint8_t nrRecords);
 void shutDownNow();
-void reconnect();
+void callback(char* topic, byte* payload, unsigned int length);
 #endif

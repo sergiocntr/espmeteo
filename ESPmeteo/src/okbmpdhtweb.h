@@ -17,7 +17,7 @@ void bm(float& somtemp,float& somhum,float& sompres)
   BME280::PresUnit presUnit(BME280::PresUnit_hPa);
 
 
-
+  uint16 mytemp=0,mypres=0,myhum=0;
   for (int mis = 0; mis < 5; mis++) {
     delay(1000);
     bme.read(pres, temp, hum,tempUnit,presUnit);
@@ -28,6 +28,12 @@ void bm(float& somtemp,float& somhum,float& sompres)
   somtemp/=5;
   sompres/=5;
   somhum/=5;
+  //mytemp=somtemp*20;
+  //mypres=sompres*20;
+  //myhum=somhum*20;
+  //somtemp=mytemp/100;
+  //sompres=mypres/100;
+  //somhum=myhum/100;
 
 }
 #endif

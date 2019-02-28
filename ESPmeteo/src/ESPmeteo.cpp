@@ -1,75 +1,97 @@
+//#define DEBUGMIO
 #include "ESPmeteo.h"
-void setup()
-{
-	#ifdef DEBUGMIO
-	Serial.begin(9600);
-  delay(5000);
-	#endif
+void setup(){
+	wifi_set_sleep_type(LIGHT_SLEEP_T);
 	WiFi.mode(WIFI_OFF);
 	WiFi.forceSleepBegin();
 	delay(100);
-	DEBUG_PRINT("Booting!");
+	#ifdef DEBUGMIO
+		Serial.begin(9600);
+  	delay(5000);
+	#endif
+	//DEBUG__PRINT("Booting!");
 	Wire.begin(default_sda_pin, default_scl_pin);
-	//have we records stored in I2C ?
 	delay(10);
 	uint8_t value = readEEPROM(nValuesAddr);
 	if(value==255) {
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
-	if(value>0) DEBUG_PRINT("there are " + String(value) + " stored values");
+
 	//READ SENSORS
 	requestSensorsValues();
+	#ifdef DEBUGMIO
+		//DEBUG__PRINT("there are " + String(value) + " stored values to send...");
+		//DEBUG__PRINT("Press: " + String(retmet.externalPressure));
+		//DEBUG__PRINT("Temp: " + String(retmet.temperatureBMP));
+		//DEBUG__PRINT("Hum: " + String(retmet.humidityBMP));
+	#endif
 	//CHECK INTERNET CONNECTION
-	uint8_t check = connLAN(); 		//check == 1 -> connected to local WIFI
-	if(check==0){
-		DEBUG_PRINT("NO LAN memorizzo e chiudo");
+	WiFi.forceSleepWake();
+  delay(100);
+	WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
+	client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
+	for (char i = 0; i < 10; i++) if (WiFi.status() != WL_CONNECTED) delay(500); else break;
+	if(WiFi.status() != WL_CONNECTED){
+		WiFi.disconnect(true);
+    WiFi.mode( WIFI_OFF );
+    WiFi.forceSleepBegin();
+    delay( 10 );
 		storeData(value);
 		shutDownNow();
-	}
-	DEBUG_PRINT("conn lan ok! ");
-	check = connINTERNET(c); 		//check == 1 -> connected to INTERNET
-	//if INTERNET available and records stored, send them first to server...
-	if(check == 1 && value > 0)
-	{
-		DEBUG_MQTT(value);
-		DEBUG_PRINT("internet ok -> invio dati memorizzati " + String(value));
-		sendData(value);
-	}
-	//  ..then send live data.
-	if(check == 1){
-		DEBUG_PRINT("internet ok -> mando dati live");
-		DEBUG_PRINT("1");
+	}else{
+		//DEBUG__PRINT("WIFI OK");
 		reconnect();
-		DEBUG_PRINT("2");
-		printMqtt();
-		DEBUG_PRINT("3");
-		printWEB(true); // send data to server (true = get time from web server (live record))
+		sendThing();
 		client.disconnect();
 		client.loop();
-	}else
-	{
-		DEBUG_PRINT("NO INTERNET!! STORING VALUE ON EEPROM");
-		storeData(value);
+		smartDelay(100);
+		unsigned long wifi_initiate = millis();
+	  while (!c.connect("www.google.com", 80 )) {
+	    if (millis() - wifi_initiate > 15000L) {
+	      //DEBUG__PRINT("conn internet FAIL! ");
+	      shutDownNow();
+	    }
+	    smartDelay(2000);
+	  }
+		printWEBJSON(value);
+		writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 	}
 }
-void smartDelay(unsigned long ms){
-  unsigned long start = millis();
-  do
+void callback(char* topic, byte* payload, unsigned int length)
+{}
+void reconnect() {
+  if ((WiFi.status() == WL_CONNECTED) && (!client.connected()))
   {
-    client.loop();
-		delay(10);
-  } while (millis() - start < ms);
-}
-void callback(char* topic, byte* payload, unsigned int length) {
-  // nothing
+    for (char i = 0; i < 10; i++)
+    {
+      //DEBUG__PRINT("Attempting MQTT connection...");
+      if (client.connect("marinerUan",mqttUser,mqttPass))
+      {
+        //DEBUG__PRINT("connected");
+        client.publish(logTopic, "marinerUan connesso");
+        client.loop();
+        break;
+      }
+      else
+      {
+        //DEBUG__PRINT("failed, rc=");
+        //DEBUG__PRINT(client.state());
+        //DEBUG__PRINT(" try again in 5 seconds");
+        smartDelay(500);
+      }
+    }
+  }
 }
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
 	//compile struct object with current data
 	met.battery = voltage;
-	met.humidityDHT22 = humidityDHT22;
-	met.temperatureDHT22 = temperatureDHT22;
+	met.humidityBMP = humidityBMP;
+	met.temperatureBMP = temperatureBMP;
 	met.externalPressure = p0;
 	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
 	nrRecords++; //add record's nr
@@ -77,11 +99,10 @@ void storeData(uint8_t nrRecords){
 }
 void shutDownNow(){
 	//this tell to attiny to power down ESP
-	DEBUG_PRINT("spegniti");
-	DEBUG_MQTT("spegniti");
-  delay(500);
+	//DEBUG__PRINT("spegniti");
+	delay(50);
 	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(500);
+	//delay(50);
 	Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
@@ -96,145 +117,97 @@ void requestSensorsValues(){
     dati[i] = Wire.read();    // receive a byte as character
   }
   voltage = (dati[1]<<8) | dati[0];
-  bm(temperatureDHT22,humidityDHT22,p0);									// read BMP080 values
+  bm(temperatureBMP,humidityBMP,p0);									// read BMP080 values
 	retmet.battery = voltage;
-	retmet.humidityDHT22 = humidityDHT22;
-	retmet.temperatureDHT22 = temperatureDHT22;
+	retmet.humidityBMP = humidityBMP;
+	retmet.temperatureBMP = temperatureBMP;
 	retmet.externalPressure = p0;
 }
-bool printWEB(bool timeAvailable) {//timeAvailable -> live mesaures
-	if(!timeAvailable)
-	{
-		voltage = met.battery;
-    humidityDHT22 = met.humidityDHT22 ;
-    temperatureDHT22 = met.temperatureDHT22 ;
-    p0 = met.externalPressure ;
-		DEBUG_PRINT("preparato dati memorizzati");
+bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
+	StaticJsonBuffer<2000> JSONbuffer;
+	JsonObject& JSONencoder = JSONbuffer.createObject();
+	//if(nrRecords>0)
+	//{
+		JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
+	  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
+	  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
+	  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
+		jsonHum.add(retmet.humidityBMP);
+		jsonTemp.add(retmet.temperatureBMP);
+		jsonPress.add(retmet.externalPressure);
+		jsonBat.add(retmet.battery);
+		for (int i = nrRecords ; i > 0 ; i--){
+			readStructEEPROM(32 * i); // read I2C eeprom
+			//DEBUG__PRINT("mando dati registrati record " + String(i));
+			delay(10);
+			jsonHum.add(met.humidityBMP);
+		  jsonTemp.add(met.temperatureBMP);
+		  jsonPress.add(met.externalPressure);
+		  jsonBat.add(met.battery);
+		}
+		#ifdef DEBUGMIO
+		//DEBUG__PRINT("Buffer multi: " + String(JSONbuffer.size()));
 		DEBUG_MQTT("preparato dati memorizzati");
-	}else
-	{
-		voltage = retmet.battery;
-		humidityDHT22 = retmet.humidityDHT22 ;
-		temperatureDHT22 = retmet.temperatureDHT22 ;
-		p0 = retmet.externalPressure ;
-	}
-	if((isnan(p0)) | (voltage > 5000)) return true;
-	double gamma = log(humidityDHT22 / 100) + ((17.62 * temperatureDHT22) / (243.5 + temperatureDHT22));
-	dp = 243.5 * gamma / (17.62 - gamma);
-	double Humidex = temperatureDHT22 + (5 * ((6.112 * pow( 10, 7.5 * temperatureDHT22/(237.7 + temperatureDHT22))*humidityDHT22/100) - 10))/9;
-	String s ="temp_out=" + String(temperatureDHT22) +
-	+"&pwd=" + webpass +
-	+"&hum_out=" + String(humidityDHT22) +
-	+"&rel_pressure=" + String(p0) +
-	+"&dwew=" + String(dp) +
-	+"&humidex=" + String(Humidex) +
-	+"&voltage=" + String(voltage) +
-	+"&time=" + String(timeAvailable);
-
-	http.begin(post_server);
-	http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-	int httpResponseCode = http.POST(s);
+		#endif
+		smartDelay(10);
+	int httpResponseCode=0;
+	//uint8_t check=0;
+	String s="";
+	JSONencoder.prettyPrintTo(s);
+	smartDelay(10);
+	http.begin(post_serverJSON);
+	httpResponseCode = http.PUT(s);
+	#ifdef DEBUGMIO
+	//DEBUG__PRINT(s);
+	#endif
 	if(httpResponseCode>0){
+		String response = http.getString();                       //Get the response to the request
+		//DEBUG__PRINT(httpResponseCode);   //Print return code
+	  //DEBUG__PRINT(response);           //Print request answer
 
-	  String response = http.getString();                       //Get the response to the request
-
-	  DEBUG_PRINT(httpResponseCode);   //Print return code
-	  DEBUG_PRINT(response);           //Print request answer
-
-	 }else{
-
-	  DEBUG_PRINT("Error on sending POST: ");
-	  DEBUG_PRINT(httpResponseCode);
-
-	 }
+ 	}else{
+		//DEBUG__PRINT("Error on sending POST: ");
+	  //DEBUG__PRINT(httpResponseCode);
+	}
  	http.end();  //Free resources
  	return true;
 }
-void sendData(uint8_t nrRecords){ // send stored I2C eeprom meteo data to web server
-	for (int i = 0 ; i <= (nrRecords - 1); i++){
-		readStructEEPROM(32 * i); // read I2C eeprom
-		printMqttLog("mando dati registrati record " + String(i));
-		DEBUG_PRINT("mando dati registrati record " + String(i));
-		DEBUG_MQTT("mando dati registrati record " + String(i));
-		for (byte s = 0; s < 4; s++) {
-			// try few times to send data
-			if(printWEB(false)) break;;
-			delay(10);
-		}
-		delay(10);
-	}
-	writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-}
-//MQTT//////////////////////////////////////////////////////////////
-void printMqtt(){
-	StaticJsonBuffer<300> JSONbuffer;
-	JsonObject& JSONencoder = JSONbuffer.createObject();
-	JSONencoder["topic"] = "Terrazza";
-	JSONencoder["Hum"] = humidityDHT22;
-	JSONencoder["Temp"] = temperatureDHT22;
-	JSONencoder["Press"] = p0;
-	char JSONmessageBuffer[100];
-	JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-	client.publish(sensorsTopic, JSONmessageBuffer,true);
-	DEBUG_PRINT("mandato dati a mqtt");
 
-}
-void printMqttLog(String message){
+//MQTT//////////////////////////////////////////////////////////////
+void sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
-	JSONencoder["topic"] = "Log";
-	JSONencoder["Log"] = message;
-	char JSONmessageBuffer[100];
-	JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
-	//reconnect();
-	client.publish(logTopic, JSONmessageBuffer,true);
-	DEBUG_PRINT("pubblicato log! " + message);
-}
-void reconnect() {
-	for (char i = 0; i < 10; i++){
-		DEBUG_PRINT("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("MLeo","sergio","donatella")) {
-      DEBUG_PRINT("connected");
-			// Once connected, publish an announcement...
-      client.publish(logTopic, "ESP-01 meteo leo connesso");
-			break;
-			}else {
-				switch (client.state()){
-	        case -4:
-	          DEBUG_PRINT("MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time");
-	          break;
-	        case -3:
-	          DEBUG_PRINT("MQTT_CONNECTION_LOST - the network connection was broken");
-	          break;
-	        case -2:
-	          DEBUG_PRINT("MQTT_CONNECT_FAILED - the network connection failed");
-	          break;
-	        case -1:
-	          DEBUG_PRINT("MQTT_DISCONNECTED - the client is disconnected cleanly");
-	          break;
-	        case 0:
-	          break;
-	        case 1:
-	          DEBUG_PRINT("MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT");
-	          break;
-	        case 2:
-	          DEBUG_PRINT("MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier");
-	          break;
-	        case 3:
-	          DEBUG_PRINT("MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection");
-	          break;
-	        case 4:
-	          DEBUG_PRINT("MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected");
-	          break;
-	        case 5:
-	          DEBUG_PRINT("MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect");
-	          break;
-	        default:
-	          Serial.print("failed, rc=");
-	          Serial.println(client.state());
-	          break;
-	     }
-			}
-		}
+  JSONencoder["topic"] = "Terrazza";
+	JSONencoder["Hum"] =retmet.humidityBMP;
+  JSONencoder["Temp"] =retmet.temperatureBMP;
+  JSONencoder["Press"] =retmet.externalPressure;
+
+  char JSONmessageBuffer[100];
+	smartDelay(10);
+	//int check =0;
+	JSONencoder.printTo(JSONmessageBuffer);
+	if(client.connected()) {
+		client.publish(extSensTopic, JSONmessageBuffer,true);
+		smartDelay(10);
+		#ifdef DEBUGMIO
+		//DEBUG__PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
+		//DEBUG__PRINT("mandato dati a mqtt: " + String(check));
+		//DEBUG__PRINT(String(JSONmessageBuffer));
+		#endif
+	}else {
+		//DEBUG__PRINT("** ERROR MQTT NOT CONNECTED");
+		return;
 	}
+
+	client.disconnect();
+	client.loop();
+}
+void smartDelay(unsigned long ms){
+  unsigned long start = millis();
+  do
+  {
+		client.loop();
+    yield();
+
+  } while (millis() - start < ms);
+}
