@@ -4,7 +4,6 @@
 #include <cxonfig.h>
 #include "topic.h"
 #include "password.h"
-//#include "myFunctions.h"
 #include "myIP.h"
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -19,11 +18,11 @@ WiFiClient c;
 PubSubClient client(c);
 IPAddress ip;
 const char* mqttID;
-void reconnect();
+bool reconnect();
 bool printWEBJSON(uint8_t records);
 void requestSensorsValues();
 void smartDelay(unsigned long ms);
-void sendThing();
+bool sendThing();
 void storeData(uint8_t nrRecords);
 void shutDownNow();
 void callback(char* topic, byte* payload, unsigned int length);

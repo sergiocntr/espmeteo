@@ -9,7 +9,7 @@ void setup(){
 		Serial.begin(9600);
   	delay(5000);
 	#endif
-	//DEBUG__PRINT("Booting!");
+	DEBUG_PRINT("Booting!");
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
 	uint8_t value = readEEPROM(nValuesAddr);
@@ -17,15 +17,12 @@ void setup(){
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
-
-	//READ SENSORS
 	requestSensorsValues();
-	#ifdef DEBUGMIO
-		//DEBUG__PRINT("there are " + String(value) + " stored values to send...");
-		//DEBUG__PRINT("Press: " + String(retmet.externalPressure));
-		//DEBUG__PRINT("Temp: " + String(retmet.temperatureBMP));
-		//DEBUG__PRINT("Hum: " + String(retmet.humidityBMP));
-	#endif
+	DEBUG_PRINT("there are " + String(value) + " stored values to send...");
+	DEBUG_PRINT("Press: " + String(retmet.externalPressure));
+	DEBUG_PRINT("Temp: " + String(retmet.temperatureBMP));
+	DEBUG_PRINT("Hum: " + String(retmet.humidityBMP));
+
 	//CHECK INTERNET CONNECTION
 	WiFi.forceSleepWake();
   delay(100);
@@ -34,72 +31,80 @@ void setup(){
   WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
 	client.setServer(mqtt_server, mqtt_port);
   client.setCallback(callback);
-	for (char i = 0; i < 10; i++) if (WiFi.status() != WL_CONNECTED) delay(500); else break;
-	if(WiFi.status() != WL_CONNECTED){
-		WiFi.disconnect(true);
-    WiFi.mode( WIFI_OFF );
-    WiFi.forceSleepBegin();
-    delay( 10 );
-		storeData(value);
-		shutDownNow();
-	}else{
-		//DEBUG__PRINT("WIFI OK");
-		reconnect();
+	unsigned long wifi_initiate = millis();
+  while (WiFi.status() != WL_CONNECTED){
+		delay(500);
+		if (millis() - wifi_initiate > 5000L){
+			storeData(value);
+			shutDownNow();
+		}
+	}
+	DEBUG_PRINT("WIFI OK");
+	if(reconnect()){
 		sendThing();
 		client.disconnect();
-		client.loop();
 		smartDelay(100);
-		unsigned long wifi_initiate = millis();
-	  while (!c.connect("www.google.com", 80 )) {
-	    if (millis() - wifi_initiate > 15000L) {
-	      //DEBUG__PRINT("conn internet FAIL! ");
-	      shutDownNow();
-	    }
-	    smartDelay(2000);
-	  }
-		printWEBJSON(value);
-		writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
+	}
+	wifi_initiate = millis();
+  while (!c.connect("www.google.com", 80 )) {
+    if (millis() - wifi_initiate > 5000L) {
+      DEBUG_PRINT("conn internet FAIL! ");
+			storeData(value);
+      shutDownNow();
+    }
+    smartDelay(1000);
+  }
+	for (char i = 0; i < 4; i++) {
+		bool check = printWEBJSON(value);
+		if(check) {
+			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
+			shutDownNow();
+		}else storeData(value);
 	}
 }
 void callback(char* topic, byte* payload, unsigned int length)
 {}
-void reconnect() {
-  if ((WiFi.status() == WL_CONNECTED) && (!client.connected()))
+bool reconnect() {
+  if (client.connected()) return true;
+  for (char i = 0; i < 5; i++)
   {
-    for (char i = 0; i < 10; i++)
+    DEBUG_PRINT("Attempting MQTT connection...");
+    if (client.connect("marinerUan",mqttUser,mqttPass))
     {
-      //DEBUG__PRINT("Attempting MQTT connection...");
-      if (client.connect("marinerUan",mqttUser,mqttPass))
-      {
-        //DEBUG__PRINT("connected");
-        client.publish(logTopic, "marinerUan connesso");
-        client.loop();
-        break;
-      }
-      else
-      {
-        //DEBUG__PRINT("failed, rc=");
-        //DEBUG__PRINT(client.state());
-        //DEBUG__PRINT(" try again in 5 seconds");
-        smartDelay(500);
-      }
+      DEBUG_PRINT("connected");
+      client.publish(logTopic, "marinerUan connesso");
+      client.loop();
+			delay(10);
+      return true;
+    }
+    else
+    {
+      DEBUG_PRINT("failed, rc=");
+      DEBUG_PRINT(client.state());
+      DEBUG_PRINT(" try again in 5 seconds");
+      smartDelay(500);
     }
   }
+	return false;
 }
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
 	//compile struct object with current data
-	met.battery = voltage;
-	met.humidityBMP = humidityBMP;
-	met.temperatureBMP = temperatureBMP;
-	met.externalPressure = p0;
+	//met.battery = voltage;
+	//met.humidityBMP = humidityBMP;
+	//met.temperatureBMP = temperatureBMP;
+	//met.externalPressure = p0;
 	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
 	nrRecords++; //add record's nr
 	writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
 }
 void shutDownNow(){
 	//this tell to attiny to power down ESP
-	//DEBUG__PRINT("spegniti");
+	WiFi.disconnect(true);
+	WiFi.mode( WIFI_OFF );
+	WiFi.forceSleepBegin();
+	delay( 10 );
+	DEBUG_PRINT("spegniti");
 	delay(50);
 	Wire.begin(default_sda_pin, default_scl_pin);
 	//delay(50);
@@ -138,43 +143,41 @@ bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 		jsonBat.add(retmet.battery);
 		for (int i = nrRecords ; i > 0 ; i--){
 			readStructEEPROM(32 * i); // read I2C eeprom
-			//DEBUG__PRINT("mando dati registrati record " + String(i));
+			DEBUG_PRINT("mando dati registrati record " + String(i));
 			delay(10);
 			jsonHum.add(met.humidityBMP);
 		  jsonTemp.add(met.temperatureBMP);
 		  jsonPress.add(met.externalPressure);
 		  jsonBat.add(met.battery);
 		}
-		#ifdef DEBUGMIO
-		//DEBUG__PRINT("Buffer multi: " + String(JSONbuffer.size()));
-		DEBUG_MQTT("preparato dati memorizzati");
-		#endif
-		smartDelay(10);
+
+		DEBUG_PRINT("Buffer multi: " + String(JSONbuffer.size()));
+		smartDelay(100);
 	int httpResponseCode=0;
-	//uint8_t check=0;
 	String s="";
 	JSONencoder.prettyPrintTo(s);
-	smartDelay(10);
+	smartDelay(100);
 	http.begin(post_serverJSON);
 	httpResponseCode = http.PUT(s);
-	#ifdef DEBUGMIO
-	//DEBUG__PRINT(s);
-	#endif
-	if(httpResponseCode>0){
+	DEBUG_PRINT(s);
+	smartDelay(100);
+	http.end();  //Free resources
+	if(httpResponseCode==200){
 		String response = http.getString();                       //Get the response to the request
-		//DEBUG__PRINT(httpResponseCode);   //Print return code
-	  //DEBUG__PRINT(response);           //Print request answer
-
+		DEBUG_PRINT(httpResponseCode);   //Print return code
+	  DEBUG_PRINT(response);           //Print request answer
+		return true;
  	}else{
-		//DEBUG__PRINT("Error on sending POST: ");
-	  //DEBUG__PRINT(httpResponseCode);
+		DEBUG_PRINT("Error on sending POST: ");
+	  DEBUG_PRINT(httpResponseCode);
+		return false;
 	}
- 	http.end();  //Free resources
- 	return true;
+
+ 	///return true;
 }
 
 //MQTT//////////////////////////////////////////////////////////////
-void sendThing(){
+bool sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
   JSONencoder["topic"] = "Terrazza";
@@ -184,23 +187,25 @@ void sendThing(){
 
   char JSONmessageBuffer[100];
 	smartDelay(10);
-	//int check =0;
+	bool check =0;
 	JSONencoder.printTo(JSONmessageBuffer);
 	if(client.connected()) {
-		client.publish(extSensTopic, JSONmessageBuffer,true);
+		check=client.publish(extSensTopic, JSONmessageBuffer,true);
 		smartDelay(10);
 		#ifdef DEBUGMIO
-		//DEBUG__PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
-		//DEBUG__PRINT("mandato dati a mqtt: " + String(check));
-		//DEBUG__PRINT(String(JSONmessageBuffer));
+		DEBUG_PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
+	DEBUG_PRINT("mandato dati a mqtt: " + String(check));
+		DEBUG_PRINT(String(JSONmessageBuffer));
 		#endif
 	}else {
-		//DEBUG__PRINT("** ERROR MQTT NOT CONNECTED");
-		return;
+		DEBUG_PRINT("** ERROR MQTT NOT CONNECTED");
+		//return;
 	}
 
 	client.disconnect();
 	client.loop();
+	if(check) return true;
+	return false;
 }
 void smartDelay(unsigned long ms){
   unsigned long start = millis();

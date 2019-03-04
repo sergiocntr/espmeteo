@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #include <Checkvoltage.h>
 Checkvoltage cv;
 //#include <TinyDebugSerial.h>

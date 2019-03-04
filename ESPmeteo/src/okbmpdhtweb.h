@@ -3,7 +3,7 @@
 #include <BME280I2C.h>
 #include <Wire.h>
 
-#define SERIAL_BAUD 115200
+//#define SERIAL_BAUD 115200
 
 BME280I2C bme;    // Default : forced mode, standby time = 1000 ms
                   // Oversampling = pressure ×1, temperature ×1, humidity ×1, filter off,
@@ -17,9 +17,9 @@ void bm(float& somtemp,float& somhum,float& sompres)
   BME280::PresUnit presUnit(BME280::PresUnit_hPa);
 
 
-  uint16 mytemp=0,mypres=0,myhum=0;
+  //uint16 mytemp=0,mypres=0,myhum=0;
   for (int mis = 0; mis < 5; mis++) {
-    delay(1000);
+    delay(1200);
     bme.read(pres, temp, hum,tempUnit,presUnit);
     somtemp+=temp;
     sompres+=pres;
