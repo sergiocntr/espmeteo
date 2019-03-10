@@ -9,7 +9,7 @@ void setup(){
 		Serial.begin(9600);
   	delay(5000);
 	#endif
-	DEBUG_PRINT("Booting!");
+	//DEBUG__PRINT("Booting!");
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
 	uint8_t value = readEEPROM(nValuesAddr);
@@ -17,12 +17,26 @@ void setup(){
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
-	requestSensorsValues();
-	DEBUG_PRINT("there are " + String(value) + " stored values to send...");
-	DEBUG_PRINT("Press: " + String(retmet.externalPressure));
-	DEBUG_PRINT("Temp: " + String(retmet.temperatureBMP));
-	DEBUG_PRINT("Hum: " + String(retmet.humidityBMP));
-
+	//DEBUG__PRINT("There are " + String(value) + " stored values to send...");
+	delay(10);
+	char risp = requestSensorsValues();
+	delay(10);
+	switch (risp) {
+		case 0:
+			//DEBUG__PRINT("Dati Recuperati OK!!");
+			break;
+		case 1:
+			//DEBUG__PRINT("Sonda Guasta!!");
+			shutDownNow();
+			break;
+	}
+	#ifdef DEBUGMIO
+		//DEBUG__PRINT("Press: " + String(retmet.externalPressure));
+		//DEBUG__PRINT("Temp: " + String(retmet.temperatureBMP));
+		//DEBUG__PRINT("Hum: " + String(retmet.humidityBMP));
+		//DEBUG__PRINT("Voltage: " + String(retmet.battery));
+	delay(100);
+	#endif
 	//CHECK INTERNET CONNECTION
 	WiFi.forceSleepWake();
   delay(100);
@@ -39,7 +53,7 @@ void setup(){
 			shutDownNow();
 		}
 	}
-	DEBUG_PRINT("WIFI OK");
+	//DEBUG__PRINT("WIFI OK");
 	if(reconnect()){
 		sendThing();
 		client.disconnect();
@@ -48,30 +62,32 @@ void setup(){
 	wifi_initiate = millis();
   while (!c.connect("www.google.com", 80 )) {
     if (millis() - wifi_initiate > 5000L) {
-      DEBUG_PRINT("conn internet FAIL! ");
+      //DEBUG__PRINT("conn internet FAIL! ");
 			storeData(value);
       shutDownNow();
     }
     smartDelay(1000);
   }
+	risp=1;
 	for (char i = 0; i < 4; i++) {
-		bool check = printWEBJSON(value);
-		if(check) {
+		risp= printWEBJSON(value);
+		if(risp==0) {
 			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-			shutDownNow();
-		}else storeData(value);
+			break;
+		}else smartDelay(1000);
 	}
+	if(risp==1) storeData(value);
 }
 void callback(char* topic, byte* payload, unsigned int length)
 {}
 bool reconnect() {
   if (client.connected()) return true;
-  for (char i = 0; i < 5; i++)
+  for (char i = 0; i < 2; i++)
   {
-    DEBUG_PRINT("Attempting MQTT connection...");
+    //DEBUG__PRINT("Attempting MQTT connection...");
     if (client.connect("marinerUan",mqttUser,mqttPass))
     {
-      DEBUG_PRINT("connected");
+      //DEBUG__PRINT("connected");
       client.publish(logTopic, "marinerUan connesso");
       client.loop();
 			delay(10);
@@ -79,9 +95,9 @@ bool reconnect() {
     }
     else
     {
-      DEBUG_PRINT("failed, rc=");
-      DEBUG_PRINT(client.state());
-      DEBUG_PRINT(" try again in 5 seconds");
+      //DEBUG__PRINT("failed, rc=");
+      //DEBUG__PRINT(client.state());
+      //DEBUG__PRINT(" try again in 5 seconds");
       smartDelay(500);
     }
   }
@@ -89,11 +105,6 @@ bool reconnect() {
 }
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
-	//compile struct object with current data
-	//met.battery = voltage;
-	//met.humidityBMP = humidityBMP;
-	//met.temperatureBMP = temperatureBMP;
-	//met.externalPressure = p0;
 	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
 	nrRecords++; //add record's nr
 	writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
@@ -104,7 +115,7 @@ void shutDownNow(){
 	WiFi.mode( WIFI_OFF );
 	WiFi.forceSleepBegin();
 	delay( 10 );
-	DEBUG_PRINT("spegniti");
+	//DEBUG__PRINT("spegniti");
 	delay(50);
 	Wire.begin(default_sda_pin, default_scl_pin);
 	//delay(50);
@@ -116,19 +127,20 @@ void loop(){
 	shutDownNow();
 	delay(3000);
 }
-void requestSensorsValues(){
+char requestSensorsValues(){
 	for (int i=0; i <= 2; i++){
     Wire.requestFrom(2, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
     dati[i] = Wire.read();    // receive a byte as character
   }
   voltage = (dati[1]<<8) | dati[0];
-  bm(temperatureBMP,humidityBMP,p0);									// read BMP080 values
+  char res= bm(temperatureBMP,humidityBMP,p0);									// read BMP080 values
 	retmet.battery = voltage;
 	retmet.humidityBMP = humidityBMP;
 	retmet.temperatureBMP = temperatureBMP;
 	retmet.externalPressure = p0;
+	return res;
 }
-bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
+char printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	StaticJsonBuffer<2000> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
 	//if(nrRecords>0)
@@ -143,7 +155,7 @@ bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 		jsonBat.add(retmet.battery);
 		for (int i = nrRecords ; i > 0 ; i--){
 			readStructEEPROM(32 * i); // read I2C eeprom
-			DEBUG_PRINT("mando dati registrati record " + String(i));
+			//DEBUG__PRINT("mando dati registrati record " + String(i));
 			delay(10);
 			jsonHum.add(met.humidityBMP);
 		  jsonTemp.add(met.temperatureBMP);
@@ -151,7 +163,7 @@ bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 		  jsonBat.add(met.battery);
 		}
 
-		DEBUG_PRINT("Buffer multi: " + String(JSONbuffer.size()));
+		//DEBUG__PRINT("Buffer multi: " + String(JSONbuffer.size()));
 		smartDelay(100);
 	int httpResponseCode=0;
 	String s="";
@@ -159,18 +171,18 @@ bool printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	smartDelay(100);
 	http.begin(post_serverJSON);
 	httpResponseCode = http.PUT(s);
-	DEBUG_PRINT(s);
+	//DEBUG__PRINT(s);
 	smartDelay(100);
 	http.end();  //Free resources
 	if(httpResponseCode==200){
 		String response = http.getString();                       //Get the response to the request
-		DEBUG_PRINT(httpResponseCode);   //Print return code
-	  DEBUG_PRINT(response);           //Print request answer
-		return true;
+		//DEBUG__PRINT(httpResponseCode);   //Print return code
+	  //DEBUG__PRINT(response);           //Print request answer
+		return 0;
  	}else{
-		DEBUG_PRINT("Error on sending POST: ");
-	  DEBUG_PRINT(httpResponseCode);
-		return false;
+		//DEBUG__PRINT("Error on sending POST: ");
+	  //DEBUG__PRINT(httpResponseCode);
+		return 1;
 	}
 
  	///return true;
@@ -193,12 +205,12 @@ bool sendThing(){
 		check=client.publish(extSensTopic, JSONmessageBuffer,true);
 		smartDelay(10);
 		#ifdef DEBUGMIO
-		DEBUG_PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
-	DEBUG_PRINT("mandato dati a mqtt: " + String(check));
-		DEBUG_PRINT(String(JSONmessageBuffer));
+		//DEBUG__PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
+	//DEBUG__PRINT("mandato dati a mqtt: " + String(check));
+		//DEBUG__PRINT(String(JSONmessageBuffer));
 		#endif
 	}else {
-		DEBUG_PRINT("** ERROR MQTT NOT CONNECTED");
+		//DEBUG__PRINT("** ERROR MQTT NOT CONNECTED");
 		//return;
 	}
 
