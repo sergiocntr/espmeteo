@@ -20,9 +20,9 @@ BME280I2C::Settings settings(
 );
 //BME280I2C bme(settings);
 BME280I2C bme;
-char bm(float& somtemp,float& somhum,float& sompres)
+uint8_t bm(float& somtemp,float& somhum,float& sompres)
 {
-  float temp(NAN), hum(NAN), pres(NAN);
+  //float temp(NAN), hum(NAN), pres(NAN);
 
   BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
   BME280::PresUnit presUnit(BME280::PresUnit_hPa);
@@ -44,7 +44,7 @@ char bm(float& somtemp,float& somhum,float& sompres)
   //  somhum+=hum;
   //  while(!bme.begin());
   //}
-  delay(2000);
+  delay(1000);
   bme.read(sompres, somtemp, somhum,tempUnit,presUnit);
   //somtemp/=4;
   //sompres/=4;

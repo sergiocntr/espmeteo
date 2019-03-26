@@ -1,4 +1,4 @@
-//#define DEBUGMIO
+#define DEBUGMIO
 #include "ESPmeteo.h"
 void preinit() {
   // Global WiFi constructors are not called yet
@@ -23,7 +23,6 @@ void setup(){
 		Serial.begin(9600);
   	delay(5000);
 	#endif
-	//DEBUG_PRINT("Booting!");
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
 	uint8_t value = readEEPROM(nValuesAddr);
@@ -31,94 +30,68 @@ void setup(){
 		value = 0;
 		writeEEPROM(nValuesAddr,value); //update storage records nr on I2C eeprom
 	}
-	//DEBUG_PRINT("There are " + String(value) + " stored values to send...");
 	delay(10);
-	char risp = requestSensorsValues();
+	uint8_t risp = requestSensorsValues();
 	delay(10);
-	switch (risp) {
+  switch (risp) {
 		case 0:
-			//DEBUG_PRINT("Dati Recuperati OK!!");
+			DEBUG_PRINT("Dati Recuperati OK!!");
 			break;
 		case 1:
-			//DEBUG_PRINT("Sonda Guasta!!");
+			DEBUG_PRINT("Sonda Guasta!!");
 			shutDownNow();
 			break;
 	}
-	#ifdef DEBUGMIO
-		//DEBUG_PRINT("Press: " + String(retmet.externalPressure));
-		//DEBUG_PRINT("Temp: " + String(retmet.temperatureBMP));
-		//DEBUG_PRINT("Hum: " + String(retmet.humidityBMP));
-		//DEBUG_PRINT("Voltage: " + String(retmet.battery));
-	delay(100);
-	#endif
-	//CHECK INTERNET CONNECTION
+	storeData(value);
+	delay(10);
+	value++;
+	client.setServer(mqtt_server, mqtt_port);
+  client.setCallback(callback);
 	WiFi.forceSleepWake();
   delay(100);
 	WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
-	client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);
-	unsigned long wifi_initiate = millis();
+	WiFi.begin(ssid, password);
+	WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
+  unsigned long wifi_initiate = millis();
   while (WiFi.status() != WL_CONNECTED){
 		delay(500);
 		if (millis() - wifi_initiate > 5000L){
-			storeData(value);
+      DEBUG_PRINT("Time out WIFI");
 			shutDownNow();
 		}
 	}
-	//DEBUG_PRINT("WIFI OK");
 	if(reconnect()){
+		client.loop();
 		sendThing();
-		client.disconnect();
 		smartDelay(100);
+    client.disconnect();
+    client.loop();
 	}
 	wifi_initiate = millis();
   while (!c.connect("www.google.com", 80 )) {
     if (millis() - wifi_initiate > 5000L) {
-      //DEBUG_PRINT("conn internet FAIL! ");
-			storeData(value);
-      shutDownNow();
+      DEBUG_PRINT("conn internet FAIL! ");
+			shutDownNow();
     }
     smartDelay(1000);
   }
+  DEBUG_PRINT("Internet OK");
 	risp=1;
 	//for (char i = 0; i < 4; i++) {
-		risp= printWEBJSON(value);
-		if(risp==0) {
-			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-	//		break;
-		}
-//	if(risp==1) storeData(value);
-  delay(50);
-  //DEBUG_PRINT("Check Update");
-  checkForUpdates();
+	risp= printWEBJSON(value);
+  delay(100);
+	if(risp==0) {
+    //DEBUG_PRINT("Mandato dati OK");
+		writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
+
+	}//else smartDelay(1000);
+	//}
+	//if(value>5){
+    DEBUG_PRINT("Check Update");
+		checkForUpdates();
+	//}
 }
-void callback(char* topic, byte* payload, unsigned int length)
-{}
-bool reconnect() {
-  if (client.connected()) return true;
-  for (char i = 0; i < 2; i++)
-  {
-    //DEBUG_PRINT("Attempting MQTT connection...");
-    if (client.connect("marinerUan",mqttUser,mqttPass))
-    {
-      //DEBUG_PRINT("connected");
-      client.publish(logTopic, "marinerUan connesso");
-      client.loop();
-			delay(10);
-      return true;
-    }
-    else
-    {
-      //DEBUG_PRINT("failed, rc=");
-      //DEBUG_PRINT(client.state());
-      //DEBUG_PRINT(" try again in 5 seconds");
-      smartDelay(500);
-    }
-  }
-	return false;
-}
+void callback(char* topic, byte* payload, unsigned int length){}
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes long so..
 	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
@@ -127,11 +100,10 @@ void storeData(uint8_t nrRecords){
 }
 void shutDownNow(){
 	//this tell to attiny to power down ESP
+  DEBUG_PRINT("Buona notte");
 	WiFi.disconnect(true);
 	WiFi.mode( WIFI_OFF );
 	WiFi.forceSleepBegin();
-	delay( 10 );
-	//DEBUG_PRINT("spegniti");
 	delay(50);
 	Wire.begin(default_sda_pin, default_scl_pin);
 	//delay(50);
@@ -154,56 +126,54 @@ char requestSensorsValues(){
 	retmet.humidityBMP = humidityBMP;
 	retmet.temperatureBMP = temperatureBMP;
 	retmet.externalPressure = p0;
-  if(voltage > 5000){
-    setup();
-  }
-	return res;
+  DEBUG_PRINT(String(voltage));
+  DEBUG_PRINT(String(humidityBMP));
+  DEBUG_PRINT(String(temperatureBMP));
+  DEBUG_PRINT(String(p0));
+  delay(10);
+  return res;
 }
 char printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	StaticJsonBuffer<2000> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
-	//if(nrRecords>0)
-	//{
-		JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
-	  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
-	  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
-	  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
-		jsonHum.add(retmet.humidityBMP);
-		jsonTemp.add(retmet.temperatureBMP);
-		jsonPress.add(retmet.externalPressure);
-		jsonBat.add(retmet.battery);
-		for (int i = nrRecords ; i > 0 ; i--){
-			readStructEEPROM(32 * i); // read I2C eeprom
-			//DEBUG_PRINT("mando dati registrati record " + String(i));
-			delay(10);
-			jsonHum.add(met.humidityBMP);
-		  jsonTemp.add(met.temperatureBMP);
-		  jsonPress.add(met.externalPressure);
-		  jsonBat.add(met.battery);
-		}
-
-		//DEBUG_PRINT("Buffer multi: " + String(JSONbuffer.size()));
-		smartDelay(100);
+	JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
+  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
+  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
+  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
+	for (int i = nrRecords ; i > 0 ; i--){
+		readStructEEPROM(32 * i); // read I2C eeprom
+		//DEBUG_PRINT("mando dati registrati record " + String(i));
+		delay(10);
+		jsonHum.add(met.humidityBMP);
+	  jsonTemp.add(met.temperatureBMP);
+	  jsonPress.add(met.externalPressure);
+	  jsonBat.add(met.battery);
+	}
+	smartDelay(100);
 	int httpResponseCode=0;
 	String s="";
 	JSONencoder.prettyPrintTo(s);
-	smartDelay(100);
-	http.begin(post_serverJSON);
+  DEBUG_PRINT(s);
+  smartDelay(100);
+	DEBUG_PRINT(String(post_serverJSON));
+	http.begin(c,post_serverJSON);
+  smartDelay(100);
 	httpResponseCode = http.PUT(s);
-	//DEBUG_PRINT(s);
-	smartDelay(100);
-	http.end();  //Free resources
+  //delay(100);
+
+	//delay(100);
+
 	if(httpResponseCode==200){
 		String response = http.getString();                       //Get the response to the request
-		//DEBUG_PRINT(httpResponseCode);   //Print return code
-	  //DEBUG_PRINT(response);           //Print request answer
+		DEBUG_PRINT(httpResponseCode);   //Print return code
+	  DEBUG_PRINT(response);           //Print request answer
 		return 0;
  	}else{
-		//DEBUG_PRINT("Error on sending POST: ");
-	  //DEBUG_PRINT(httpResponseCode);
+		DEBUG_PRINT("Error on sending POST: ");
+	  DEBUG_PRINT(httpResponseCode);
 		return 1;
 	}
-
+  http.end();  //Free resources
  	///return true;
 }
 uint8_t checkForUpdates() {
@@ -213,12 +183,12 @@ uint8_t checkForUpdates() {
   String fwVersionURL = fwURL;
   fwVersionURL.concat( "/version.php" );
   delay(100);
-  //DEBUG_PRINT(fwVersionURL);
+  DEBUG_PRINT(fwVersionURL);
   String fwImageURL = fwURL;
   fwImageURL.concat( "/firmware.bin" );
   delay(100);
 	//client.publish(logTopic, fwImageURL.c_str());
-  http.begin( fwVersionURL );
+  http.begin( c,fwVersionURL );
   delay(100);
   int httpCode = http.GET();
   delay(100);
@@ -227,8 +197,8 @@ uint8_t checkForUpdates() {
     int newVersion = newFWVersion.toInt();
 		if( newVersion > versione ) {
     	//client.publish(logTopic, "aggiorno piccolo");
-      //DEBUG_PRINT( "aggiorno piccolo" );
-      t_httpUpdate_return ret = ESPhttpUpdate.update( fwImageURL );
+      DEBUG_PRINT( "aggiorno piccolo" );
+      t_httpUpdate_return ret = ESPhttpUpdate.update( c,fwImageURL );
       delay(100);
       switch(ret) {
         case HTTP_UPDATE_FAILED:
@@ -241,8 +211,6 @@ uint8_t checkForUpdates() {
         case HTTP_UPDATE_OK:
           //Serial.println("[update] Update ok."); // may not called we reboot the ESP
           break;
-          //case else:
-
       }
     }
     else {
@@ -251,8 +219,8 @@ uint8_t checkForUpdates() {
   }
   else {
     delay(100);
-    //DEBUG_PRINT( "Firmware version check failed, got HTTP response code " );
-    //DEBUG_PRINT( httpCode );
+    DEBUG_PRINT( "Firmware version check failed, got HTTP response code " );
+    DEBUG_PRINT( httpCode );
     //check= httpCode;
   }
   delay(100);
@@ -260,6 +228,25 @@ uint8_t checkForUpdates() {
   return httpCode;
 }
 //MQTT//////////////////////////////////////////////////////////////
+bool reconnect() {
+  String clientId = "mariner-";
+  clientId += String(random(0xffff), HEX);
+  for (char i = 0; i < 2; i++)
+  {
+    if (client.connect(mqttID,mqttUser,mqttPass))
+    {
+      client.publish(logTopic, "marinerUan connesso");
+			client.loop();
+			delay(10);
+      return true;
+    }
+    else
+    {
+      smartDelay(500);
+    }
+  }
+	return false;
+}
 bool sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
@@ -267,35 +254,24 @@ bool sendThing(){
 	JSONencoder["Hum"] =retmet.humidityBMP;
   JSONencoder["Temp"] =retmet.temperatureBMP;
   JSONencoder["Press"] =retmet.externalPressure;
-
-  char JSONmessageBuffer[100];
-	smartDelay(10);
+	char JSONmessageBuffer[300];
+	smartDelay(100);
 	bool check =0;
 	JSONencoder.printTo(JSONmessageBuffer);
 	if(client.connected()) {
 		check=client.publish(extSensTopic, JSONmessageBuffer,true);
-		smartDelay(10);
-		#ifdef DEBUGMIO
-		//DEBUG_PRINT("Size JSONBuffer: " + String(JSONbuffer.size()));
-	//DEBUG_PRINT("mandato dati a mqtt: " + String(check));
-		//DEBUG_PRINT(String(JSONmessageBuffer));
-		#endif
-	}else {
-		//DEBUG_PRINT("** ERROR MQTT NOT CONNECTED");
-		//return;
-	}
-
+		smartDelay(100);
+		}
 	client.disconnect();
 	client.loop();
-	if(check) return true;
-	return false;
+	return check;
 }
 void smartDelay(unsigned long ms){
   unsigned long start = millis();
   do
   {
 		client.loop();
-    yield();
+    delay(10);
 
   } while (millis() - start < ms);
 }

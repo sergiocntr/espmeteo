@@ -7,7 +7,7 @@ byte writeStructEEPROM(unsigned int addr){
 	Wire.write ((byte) (addr & 0xFF));  // low-order byte
 	I2C_writeAnything (retmet);
 	err = Wire.endTransmission ();
-	delay(6);  // needs 5ms for page write
+	delay(10);  // needs 5ms for page write
 	return err;  // cannot write to device
 }
 byte readStructEEPROM(unsigned int addr){
@@ -29,21 +29,16 @@ void writeEEPROM(uint16_t eeaddress, uint8_t data ){
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.write(data);
   Wire.endTransmission();
-
-  delay(6);
+	delay(10);
 }
 uint8_t readEEPROM(uint16_t eeaddress ){
   uint8_t rdata = 0xFF;
-
-  Wire.beginTransmission(SLAVE_ADDRESS);
+	Wire.beginTransmission(SLAVE_ADDRESS);
   Wire.write((int)(eeaddress >> 8));   // MSB
   Wire.write((int)(eeaddress & 0xFF)); // LSB
   Wire.endTransmission();
-
-  Wire.requestFrom(SLAVE_ADDRESS,1);
-
-  if (Wire.available()) rdata = Wire.read();
-
-  return rdata;
+	Wire.requestFrom(SLAVE_ADDRESS,1);
+	if (Wire.available()) rdata = Wire.read();
+	return rdata;
 }
 #endif
