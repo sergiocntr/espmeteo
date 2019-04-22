@@ -8,21 +8,16 @@
 #include "myIP.h"
 #include <Arduino.h>
 #include "I2C_Anything.h"
-#include <PubSubClient.h> //mqtt library
+#include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "okbmpdhtweb.h"
 #include "eeprommio.h"
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
+#include <myFunctions.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
-HTTPClient http;
-WiFiClient c;
-PubSubClient client(c);
-IPAddress ip;
-const uint16_t versione = 4;
-const char* mqttID = "marinerUan";
+const uint16_t versione = 8;
 bool reconnect();
+void reinit();
 char printWEBJSON(uint8_t records);
 char requestSensorsValues();
 void smartDelay(unsigned long ms);
@@ -30,7 +25,6 @@ bool sendThing();
 void storeData(uint8_t nrRecords);
 void shutDownNow();
 void callback(char* topic, byte* payload, unsigned int length);
-uint8_t checkForUpdates();
 void user_init();
 void preinit();
 #endif

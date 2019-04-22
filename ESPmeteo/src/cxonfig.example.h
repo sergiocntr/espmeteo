@@ -1,5 +1,6 @@
 #ifndef cxconfig_h
 #define cxconfig_h
+#include <Arduino.h>
 //ESP-01 SDA - SCL pin
 static int default_sda_pin = 0;
 static int default_scl_pin = 2;
