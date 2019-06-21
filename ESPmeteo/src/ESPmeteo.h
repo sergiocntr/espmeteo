@@ -1,7 +1,7 @@
 #ifndef espmeteo_h
 #define espmeteo_h
 #pragma once
-//#define DEBUGMIO
+#define DEBUGMIO
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -29,7 +29,7 @@ const uint16_t nValuesAddr = 0x0FFF; //address on I2C EEPROM ,we store there how
 //meteo data object + battery
 #include "eeprommio.h"
 #include <myFunctions.h>
-void reconnect();
+bool reconnect();
 void callback(char* topic, byte* payload, unsigned int length);
 uint8_t printWEBJSON(uint8_t records);
 uint8_t requestSensorsValues();
