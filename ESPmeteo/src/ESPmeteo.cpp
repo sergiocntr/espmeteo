@@ -12,14 +12,12 @@ void setup(){
   #else
     #define DEBPRINT(str)
   #endif
-
   Wire.begin(default_sda_pin, default_scl_pin);
   uint8_t nrRecord = readEEPROM(nValuesAddr);
   if(nrRecord==255) {
     nrRecord = 0;
     writeEEPROM(nValuesAddr,nrRecord); //update storage records nr on I2C eeprom
   }
-  
   delay(10);
   uint8_t risp = requestSensorsValues();
   if(risp==1) shutDownNow();
@@ -84,15 +82,12 @@ void loop(){
 void callback(char* topic, byte* payload, unsigned int length){}
 void shutDownNow(){
   //this tell to attiny to power down ESP
-
   DEBPRINT("spegniti");
   Wire.begin(default_sda_pin, default_scl_pin);
   Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
 }
-
-
 void storeData(uint8_t nrRecords){
   uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes ,we use 32 bytes page write
   writeStructEEPROM(availAddress);	//write struct on I2C eeprom
