@@ -6,7 +6,7 @@ void setup(){
 	delay(100);
 	#ifdef DEBUGMIO
 		Serial.begin(9600);
-  	delay(5000);
+		delay(5000);
 		#define DEBPRINT(str) Serial.println(str);
 		DEBPRINT("Booting!");
 	#else
@@ -34,50 +34,50 @@ void setup(){
 	yield();
 	setIP(marinerUan,marinerId);
 	risp=connectWiFi();
-  DEBPRINT("WIFI: " + String(risp));
-  if(risp!=0){
-    storeData(nrRecord);
-    shutDownNow();
+	DEBPRINT("WIFI: " + String(risp));
+	if(risp!=0){
+		storeData(nrRecord);
+		shutDownNow();
   }
 	client.setServer(mqtt_server, mqtt_port);
 	delay(10);
 	for (char i = 0; i < 3; i++)
-	  {
-	    DEBPRINT("Attempting MQTT connection...");
-	    if (client.connect("marinerUan",mqttUser,mqttPass))
-	    {
-	      DEBPRINT("connected");
-	      client.loop();
-				client.publish(logTopic, "marinerUan connesso");
-				DEBPRINT("publish");
-		    client.loop();
-		    sendThing();
-		    delay(10);
-				break;
-	    }
-	    else
-	    {
-				DEBPRINT("...");
-	      smartDelay(500);
-	    }
-	  }
+	{
+		DEBPRINT("Attempting MQTT connection...");
+		if (client.connect("marinerUan",mqttUser,mqttPass))
+		{
+			DEBPRINT("connected");
+			client.loop();
+			client.publish(logTopic, "marinerUan connesso");
+			DEBPRINT("publish");
+			client.loop();
+			sendThing();
+			delay(10);
+			break;
+		}
+		else
+		{
+			DEBPRINT("...");
+			smartDelay(500);
+		}
+	}
 	yield();
 	risp =1;
 	for (uint8_t i = 0; i < 4; i++) {
 		risp = printWEBJSON(nrRecord);
-    DEBPRINT("PRINT WEB: " + String(risp));
+		DEBPRINT("PRINT WEB: " + String(risp));
 		if(risp==0) {
 			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 			break;
 		}
-  }
+	}
 	smartDelay(50);
 }
 void loop(){
 	if (client.connected()) client.disconnect();
 	smartDelay(50);
-  WiFi.disconnect(true);
-  delay( 10 );
+	WiFi.disconnect(true);
+	delay( 10 );
 	shutDownNow();
 	delay(1000);
 }
@@ -88,8 +88,8 @@ void shutDownNow(){
 	DEBPRINT("spegniti");
 	Wire.begin(default_sda_pin, default_scl_pin);
 	Wire.beginTransmission (2);
-  Wire.write (20);
-  Wire.endTransmission(true);
+	Wire.write (20);
+	Wire.endTransmission(true);
 }
 
 
@@ -116,55 +116,55 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	StaticJsonBuffer<2000> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
 	JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
-  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
-  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
-  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
-  jsonHum.add(met.humidityBMP);
-  jsonTemp.add(met.temperatureBMP);
-  jsonPress.add(met.externalPressure);
-  jsonBat.add(met.battery);
-  yield();
+	JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
+	JsonArray& jsonPress = JSONencoder.createNestedArray("press");
+	JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
+	jsonHum.add(met.humidityBMP);
+	jsonTemp.add(met.temperatureBMP);
+	jsonPress.add(met.externalPressure);
+	jsonBat.add(met.battery);
+	yield();
 	if(nrRecords>0){
-	  nrRecords--;
+	nrRecords--;
 		DEBPRINT(nrRecords);
-		for (int i =  nrRecords ; i >= 0 ; i--){
+		for (int i =nrRecords ; i >= 0 ; i--){
 			readStructEEPROM(32 * i); // read I2C eeprom
 			delay(10);
 			jsonHum.add(met.humidityBMP);
-		  jsonTemp.add(met.temperatureBMP);
-		  jsonPress.add(met.externalPressure);
-		  jsonBat.add(met.battery);
+			jsonTemp.add(met.temperatureBMP);
+			jsonPress.add(met.externalPressure);
+			jsonBat.add(met.battery);
 		}
 	}
-  smartDelay(100);
+	smartDelay(100);
 	int httpResponseCode=0;
 	String s="";
 	JSONencoder.prettyPrintTo(s);
 	yield();
 	HTTPClient http;
-  http.begin(c,post_serverJSON);
+	http.begin(c,post_serverJSON);
 	httpResponseCode = http.PUT(s);
 	DEBPRINT(s);
 	smartDelay(1500);
 	http.end();  //Free resources
 	if(httpResponseCode==200){
 		DEBPRINT(httpResponseCode);   //Print return code
-	  DEBPRINT(response);           //Print request answer
+		DEBPRINT(response);           //Print request answer
 		return 0;
  	}else{
 		DEBPRINT("Error on sending POST: ");
-	  DEBPRINT(httpResponseCode);
+		DEBPRINT(httpResponseCode);
 		return 1;
 	}
 }
 bool sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
-  JSONencoder["topic"] = "Terrazza";
+	JSONencoder["topic"] = "Terrazza";
 	JSONencoder["Hum"] =met.humidityBMP;
-  JSONencoder["Temp"] =met.temperatureBMP;
-  JSONencoder["Press"] =met.externalPressure;
-  char JSONmessageBuffer[100];
+	JSONencoder["Temp"] =met.temperatureBMP;
+	JSONencoder["Press"] =met.externalPressure;
+	char JSONmessageBuffer[100];
 	smartDelay(10);
 	bool check =0;
 	JSONencoder.printTo(JSONmessageBuffer);
@@ -175,10 +175,10 @@ bool sendThing(){
 	return check;
 }
 void smartDelay(unsigned long ms){
-  unsigned long start = millis();
-  do
-  {
+	unsigned long start = millis();
+	do
+	{
 		client.loop();
-    delay(10);
-	} while (millis() - start < ms);
+		delay(10);
+	}while (millis() - start < ms);
 }
