@@ -7,7 +7,10 @@ void setup(){
 	#ifdef DEBUGMIO
 		Serial.begin(9600);
   	delay(5000);
-		Serial.println("Booting!");
+		#define DEBPRINT(str) Serial.println(str);
+		DEBPRINT("Booting!");
+	#else
+		#define DEBPRINT(str)
 	#endif
 
 	Wire.begin(default_sda_pin, default_scl_pin);
@@ -16,79 +19,65 @@ void setup(){
 		nrRecord = 0;
 		writeEEPROM(nValuesAddr,nrRecord); //update storage records nr on I2C eeprom
 	}
-	Serial.println("Stored: " + String(nrRecord));
+	
 	delay(10);
 	uint8_t risp = requestSensorsValues();
-	Serial.println("BMP: " + String(risp));
-	//delay(1000);
-	yield();
 	if(risp==1) shutDownNow();
-	//#ifdef DEBUGMIO
-		//Serial.println("Pressp=: " + String(p0));
-		Serial.println("Press: " + String(met.externalPressure));
-		Serial.println("Temp: " + String(met.temperatureBMP));
-		Serial.println("Hum: " + String(met.humidityBMP));
-		Serial.println("Voltage: " + String(met.battery));
-
-	//#endif
+	#ifdef DEBUGMIO
+		DEBPRINT("Stored: " + String(nrRecord));
+		DEBPRINT("BMP: " + String(risp));
+		DEBPRINT("Press: " + String(met.externalPressure));
+		DEBPRINT("Temp: " + String(met.temperatureBMP));
+		DEBPRINT("Hum: " + String(met.humidityBMP));
+		DEBPRINT("Voltage: " + String(met.battery));
+	#endif
 	yield();
 	setIP(marinerUan,marinerId);
-	//delay(100);
-  risp=connectWiFi();
-  Serial.println("WIFI: " + String(risp));
+	risp=connectWiFi();
+  DEBPRINT("WIFI: " + String(risp));
   if(risp!=0){
     storeData(nrRecord);
     shutDownNow();
   }
 	client.setServer(mqtt_server, mqtt_port);
-	//client.setCallback(callback);
 	delay(10);
-	//int8_t checkMQTT = connectMQTT();
-	//if (!client.connected()){
-	  for (char i = 0; i < 3; i++)
+	for (char i = 0; i < 3; i++)
 	  {
-	    //DEBUG_PRINT("Attempting MQTT connection...");
+	    DEBPRINT("Attempting MQTT connection...");
 	    if (client.connect("marinerUan",mqttUser,mqttPass))
 	    {
-	      Serial.println("connected");
-	      //client.publish(logTopic, "marinerUan connesso");
+	      DEBPRINT("connected");
 	      client.loop();
 				client.publish(logTopic, "marinerUan connesso");
-				Serial.println("publish");
+				DEBPRINT("publish");
 		    client.loop();
 		    sendThing();
 		    delay(10);
-				//delay(10);
-	      //return true;
+				break;
 	    }
 	    else
 	    {
-				Serial.println("...");
+				DEBPRINT("...");
 	      smartDelay(500);
 	    }
 	  }
-	//}
 	yield();
 	risp =1;
 	for (uint8_t i = 0; i < 4; i++) {
 		risp = printWEBJSON(nrRecord);
-    Serial.println("PRINT WEB: " + String(risp));
+    DEBPRINT("PRINT WEB: " + String(risp));
 		if(risp==0) {
 			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 			break;
 		}
   }
-
-  smartDelay(50);
+	smartDelay(50);
 }
 void loop(){
 	if (client.connected()) client.disconnect();
 	smartDelay(50);
   WiFi.disconnect(true);
-  //delay(10);
-	//WiFi.mode( WIFI_OFF );
-	//WiFi.forceSleepBegin();
-	delay( 10 );
+  delay( 10 );
 	shutDownNow();
 	delay(1000);
 }
@@ -96,9 +85,8 @@ void callback(char* topic, byte* payload, unsigned int length){}
 void shutDownNow(){
 	//this tell to attiny to power down ESP
 
-	Serial.println("spegniti");
+	DEBPRINT("spegniti");
 	Wire.begin(default_sda_pin, default_scl_pin);
-	//delay(50);
 	Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
@@ -138,9 +126,8 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
   yield();
 	if(nrRecords>0){
 	  nrRecords--;
-		Serial.println(nrRecords);
+		DEBPRINT(nrRecords);
 		for (int i =  nrRecords ; i >= 0 ; i--){
-			Serial.println("non devi leggerlo");
 			readStructEEPROM(32 * i); // read I2C eeprom
 			delay(10);
 			jsonHum.add(met.humidityBMP);
@@ -157,21 +144,18 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	HTTPClient http;
   http.begin(c,post_serverJSON);
 	httpResponseCode = http.PUT(s);
-	Serial.println(s);
+	DEBPRINT(s);
 	smartDelay(1500);
 	http.end();  //Free resources
 	if(httpResponseCode==200){
-		//String response = http.getString();                       //Get the response to the request
-		Serial.println(httpResponseCode);   //Print return code
-	  //Serial.println(response);           //Print request answer
+		DEBPRINT(httpResponseCode);   //Print return code
+	  DEBPRINT(response);           //Print request answer
 		return 0;
  	}else{
-		Serial.println("Error on sending POST: ");
-	  Serial.println(httpResponseCode);
+		DEBPRINT("Error on sending POST: ");
+	  DEBPRINT(httpResponseCode);
 		return 1;
 	}
-
- 	///return true;
 }
 bool sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
@@ -186,12 +170,8 @@ bool sendThing(){
 	JSONencoder.printTo(JSONmessageBuffer);
 	yield();
 	check=client.publish(extSensTopic,JSONmessageBuffer);
-	Serial.println("Publish: " + String(check));
-	//check=send(extSensTopic, JSONmessageBuffer);
-	client.loop();
+	DEBPRINT("Publish: " + String(check));
 	smartDelay(100);
-	client.disconnect();
-	client.loop();
 	return check;
 }
 void smartDelay(unsigned long ms){
@@ -200,6 +180,5 @@ void smartDelay(unsigned long ms){
   {
 		client.loop();
     delay(10);
-
-  } while (millis() - start < ms);
+	} while (millis() - start < ms);
 }
