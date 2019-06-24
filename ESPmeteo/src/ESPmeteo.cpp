@@ -149,7 +149,7 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	http.end();  //Free resources
 	if(httpResponseCode==200){
 		DEBPRINT(httpResponseCode);   //Print return code
-	  DEBPRINT(response);           //Print request answer
+	  //DEBPRINT(response);           //Print request answer
 		return 0;
  	}else{
 		DEBPRINT("Error on sending POST: ");
