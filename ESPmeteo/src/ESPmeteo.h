@@ -14,6 +14,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include "okbmpdhtweb.h"
+WiFiClient espClient;
+PubSubClient meteoclient(espClient );
 //ESP-01 SDA - SCL pin
 const int default_sda_pin = 0;
 const int default_scl_pin = 2;

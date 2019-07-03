@@ -7,8 +7,8 @@ void setup(){
 	#ifdef DEBUGMIO
 		Serial.begin(9600);
   	delay(5000);
-		#define DEBPRINT(str) Serial.println(str);
-		DEBPRINT("Booting!");
+		#define //DEBPRINT(str) Serial.println(str);
+		//DEBPRINT("Booting!");
 	#else
 		#define DEBPRINT(str)
 	#endif
@@ -24,48 +24,36 @@ void setup(){
 	uint8_t risp = requestSensorsValues();
 	if(risp==1) shutDownNow();
 	#ifdef DEBUGMIO
-		DEBPRINT("Stored: " + String(nrRecord));
-		DEBPRINT("BMP: " + String(risp));
-		DEBPRINT("Press: " + String(met.externalPressure));
-		DEBPRINT("Temp: " + String(met.temperatureBMP));
-		DEBPRINT("Hum: " + String(met.humidityBMP));
-		DEBPRINT("Voltage: " + String(met.battery));
+		//DEBPRINT("Stored: " + String(nrRecord));
+		//DEBPRINT("BMP: " + String(risp));
+		//DEBPRINT("Press: " + String(met.externalPressure));
+		//DEBPRINT("Temp: " + String(met.temperatureBMP));
+		//DEBPRINT("Hum: " + String(met.humidityBMP));
+		//DEBPRINT("Voltage: " + String(met.battery));
 	#endif
 	yield();
 	setIP(marinerUan,marinerId);
 	risp=connectWiFi();
-  DEBPRINT("WIFI: " + String(risp));
+  //DEBPRINT("WIFI: " + String(risp));
   if(risp!=0){
     storeData(nrRecord);
     shutDownNow();
   }
-	client.setServer(mqtt_server, mqtt_port);
-	delay(10);
-	for (char i = 0; i < 3; i++)
-	  {
-	    DEBPRINT("Attempting MQTT connection...");
-	    if (client.connect("marinerUan",mqttUser,mqttPass))
-	    {
-	      DEBPRINT("connected");
-	      client.loop();
-				client.publish(logTopic, "marinerUan connesso");
-				DEBPRINT("publish");
-		    client.loop();
-		    sendThing();
-		    delay(10);
-				break;
-	    }
-	    else
-	    {
-				DEBPRINT("...");
-	      smartDelay(500);
-	    }
-	  }
-	yield();
+	meteoclient.setServer(mqtt_server, mqtt_port);
+  meteoclient.setCallback(callback);
+  //meteoclient.connect(mqttID,mqttUser,mqttPass,logTopic,0,true,"spengo mariner",false);
+	meteoclient.connect(mqttID,mqttUser,mqttPass);
+  smartDelay(100);
+	if (meteoclient.connected()){
+		//DEBPRINT("MQTT CONN OK");
+    meteoclient.publish(logTopic, "mariner connesso");
+    sendThing();
+		smartDelay(100);
+	}
 	risp =1;
 	for (uint8_t i = 0; i < 4; i++) {
 		risp = printWEBJSON(nrRecord);
-    DEBPRINT("PRINT WEB: " + String(risp));
+    //DEBPRINT("PRINT WEB: " + String(risp));
 		if(risp==0) {
 			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
 			break;
@@ -74,7 +62,7 @@ void setup(){
 	smartDelay(50);
 }
 void loop(){
-	if (client.connected()) client.disconnect();
+	if (meteoclient.connected()) meteoclient.disconnect();
 	smartDelay(50);
   WiFi.disconnect(true);
   delay( 10 );
@@ -85,14 +73,12 @@ void callback(char* topic, byte* payload, unsigned int length){}
 void shutDownNow(){
 	//this tell to attiny to power down ESP
 
-	DEBPRINT("spegniti");
+	//DEBPRINT("spegniti");
 	Wire.begin(default_sda_pin, default_scl_pin);
 	Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
 }
-
-
 void storeData(uint8_t nrRecords){
 	uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes ,we use 32 bytes page write
 	writeStructEEPROM(availAddress);	//write struct on I2C eeprom
@@ -126,7 +112,7 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
   yield();
 	if(nrRecords>0){
 	  nrRecords--;
-		DEBPRINT(nrRecords);
+		//DEBPRINT(nrRecords); 
 		for (int i =  nrRecords ; i >= 0 ; i--){
 			readStructEEPROM(32 * i); // read I2C eeprom
 			delay(10);
@@ -141,19 +127,20 @@ uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
 	String s="";
 	JSONencoder.prettyPrintTo(s);
 	yield();
+	
 	HTTPClient http;
-  http.begin(c,post_serverJSON);
+  http.begin(espClient,post_serverJSON);
 	httpResponseCode = http.PUT(s);
-	DEBPRINT(s);
+	//DEBPRINT(s);
 	smartDelay(1500);
 	http.end();  //Free resources
 	if(httpResponseCode==200){
-		DEBPRINT(httpResponseCode);   //Print return code
-	  //DEBPRINT(response);           //Print request answer
+		//DEBPRINT(httpResponseCode);   //Print return code
+	  ////DEBPRINT(response);           //Print request answer
 		return 0;
  	}else{
-		DEBPRINT("Error on sending POST: ");
-	  DEBPRINT(httpResponseCode);
+		//DEBPRINT("Error on sending POST: ");
+	  //DEBPRINT(httpResponseCode);
 		return 1;
 	}
 }
@@ -169,8 +156,8 @@ bool sendThing(){
 	bool check =0;
 	JSONencoder.printTo(JSONmessageBuffer);
 	yield();
-	check=client.publish(extSensTopic,JSONmessageBuffer);
-	DEBPRINT("Publish: " + String(check));
+	check=meteoclient.publish(extSensTopic,JSONmessageBuffer);
+	//DEBPRINT("Publish: " + String(check));
 	smartDelay(100);
 	return check;
 }
@@ -178,7 +165,7 @@ void smartDelay(unsigned long ms){
   unsigned long start = millis();
   do
   {
-		client.loop();
+		meteoclient.loop();
     delay(10);
 	} while (millis() - start < ms);
 }
