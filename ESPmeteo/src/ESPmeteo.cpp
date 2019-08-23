@@ -12,7 +12,6 @@ void setup(){
 	#else
 		#define DEBPRINT(str)
 	#endif
-
 	Wire.begin(default_sda_pin, default_scl_pin);
 	uint8_t nrRecord = readEEPROM(nValuesAddr);
 	if(nrRecord==255) {
@@ -41,29 +40,25 @@ void setup(){
   }
 	meteoclient.setServer(mqtt_server, mqtt_port);
   meteoclient.setCallback(callback);
-  //meteoclient.connect(mqttID,mqttUser,mqttPass,logTopic,0,true,"spengo mariner",false);
-	meteoclient.connect(mqttID,mqttUser,mqttPass);
+  String clientId = String(mqttID);
+  clientId += String(random(0xffff), HEX);
+	meteoclient.connect(clientId.c_str(),mqttUser,mqttPass);
   smartDelay(100);
 	if (meteoclient.connected()){
 		//DEBPRINT("MQTT CONN OK");
     meteoclient.publish(logTopic, "mariner connesso");
     sendThing();
 		smartDelay(100);
+		meteoclient.disconnect();
+		smartDelay(200);
 	}
 	risp =1;
-	for (uint8_t i = 0; i < 4; i++) {
-		risp = printWEBJSON(nrRecord);
-    //DEBPRINT("PRINT WEB: " + String(risp));
-		if(risp==0) {
-			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-			break;
-		}
-  }
+	risp = printWEBJSON(nrRecord);
+	
 	smartDelay(50);
 }
 void loop(){
-	if (meteoclient.connected()) meteoclient.disconnect();
-	smartDelay(50);
+	
   WiFi.disconnect(true);
   delay( 10 );
 	shutDownNow();
@@ -99,52 +94,71 @@ uint8_t requestSensorsValues(){
 	return res;
 }
 uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
-	StaticJsonBuffer<2000> JSONbuffer;
-	JsonObject& JSONencoder = JSONbuffer.createObject();
-	JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
-  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
-  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
-  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
-  jsonHum.add(met.humidityBMP);
-  jsonTemp.add(met.temperatureBMP);
-  jsonPress.add(met.externalPressure);
-  jsonBat.add(met.battery);
-  yield();
 	if(nrRecords>0){
-	  nrRecords--;
-		//DEBPRINT(nrRecords); 
-		for (int i =  nrRecords ; i >= 0 ; i--){
-			readStructEEPROM(32 * i); // read I2C eeprom
-			delay(10);
-			jsonHum.add(met.humidityBMP);
-		  jsonTemp.add(met.temperatureBMP);
-		  jsonPress.add(met.externalPressure);
-		  jsonBat.add(met.battery);
+		StaticJsonBuffer<2000> JSONbuffer;
+		JsonObject& JSONencoder = JSONbuffer.createObject();
+		JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
+		JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
+		JsonArray& jsonPress = JSONencoder.createNestedArray("press");
+		JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
+		yield();
+		if(nrRecords>0){
+			nrRecords--;
+			//DEBPRINT(nrRecords); 
+			for (int i =  nrRecords ; i >= 0 ; i--){
+				readStructEEPROM(32 * i); // read I2C eeprom
+				delay(10);
+				jsonHum.add(met.humidityBMP);
+				jsonTemp.add(met.temperatureBMP);
+				jsonPress.add(met.externalPressure);
+				jsonBat.add(met.battery);
+			}
+		}
+		smartDelay(100);
+		jsonHum.add(met.humidityBMP);
+		jsonTemp.add(met.temperatureBMP);
+		jsonPress.add(met.externalPressure);
+		jsonBat.add(met.battery);
+		int httpResponseCode=0;
+		String s="";
+		JSONencoder.prettyPrintTo(s);
+		yield();
+		HTTPClient http;
+		http.begin(espClient,post_serverJSON);
+		httpResponseCode = http.PUT(s);
+		//DEBPRINT(s);
+		smartDelay(100);
+		http.end();  //Free resources
+		if(httpResponseCode==200){
+			//DEBPRINT(httpResponseCode);   //Print return code
+			////DEBPRINT(response);           //Print request answer
+			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
+			return 0;
+		}else{
+			//DEBPRINT("Error on sending POST: ");
+			//DEBPRINT(httpResponseCode);
+			return 1;
 		}
 	}
-  smartDelay(100);
-	int httpResponseCode=0;
-	String s="";
-	JSONencoder.prettyPrintTo(s);
-	yield();
-	
-	HTTPClient http;
-  http.begin(espClient,post_serverJSON);
-	httpResponseCode = http.PUT(s);
-	//DEBPRINT(s);
-	smartDelay(1500);
-	http.end();  //Free resources
-	if(httpResponseCode==200){
-		//DEBPRINT(httpResponseCode);   //Print return code
-	  ////DEBPRINT(response);           //Print request answer
-		return 0;
- 	}else{
-		//DEBPRINT("Error on sending POST: ");
-	  //DEBPRINT(httpResponseCode);
-		return 1;
-	}
+	else{
+		//Serial.begin(9600);
+		smartDelay(100);
+    String s =String("GET /meteofeletto/swpi_logger.php?hum=" + String(met.humidityBMP) +
+    +"&&pwd=" + webpass +
+    +"&&temp=" + String(met.temperatureBMP) +
+    +"&&press=" + String(met.externalPressure) +
+    +"&&bat=" + String(met.battery) +
+    + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
+    smartDelay(100);
+    //Serial.println(s);
+    if (espClient.connect(host, httpPort))
+		{
+			espClient.println(s);
+			smartDelay(100);
+		}
+  }
 }
-bool sendThing(){
+void sendThing(){
 	StaticJsonBuffer<300> JSONbuffer;
 	JsonObject& JSONencoder = JSONbuffer.createObject();
   JSONencoder["topic"] = "Terrazza";
@@ -152,14 +166,17 @@ bool sendThing(){
   JSONencoder["Temp"] =met.temperatureBMP;
   JSONencoder["Press"] =met.externalPressure;
   char JSONmessageBuffer[100];
-	smartDelay(10);
+	smartDelay(100);
 	bool check =0;
 	JSONencoder.printTo(JSONmessageBuffer);
-	yield();
-	check=meteoclient.publish(extSensTopic,JSONmessageBuffer);
-	//DEBPRINT("Publish: " + String(check));
 	smartDelay(100);
-	return check;
+	for (uint8_t i = 0; i < 3; i++)
+	{
+		check=meteoclient.publish(extSensTopic,JSONmessageBuffer);
+		if(check) break;
+	
+	}
+	smartDelay(100);
 }
 void smartDelay(unsigned long ms){
   unsigned long start = millis();

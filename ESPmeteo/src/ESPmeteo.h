@@ -33,7 +33,7 @@ void callback(char* topic, byte* payload, unsigned int length);
 uint8_t printWEBJSON(uint8_t records);
 uint8_t requestSensorsValues();
 void smartDelay(unsigned long ms);
-bool sendThing();
+void sendThing();
 void storeData(uint8_t nrRecords);
 uint8_t bm(meteoData& met);
 #endif
