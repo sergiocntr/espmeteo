@@ -5,9 +5,9 @@ byte writeStructEEPROM(unsigned int addr){
 	Wire.beginTransmission(SLAVE_ADDRESS);
 	Wire.write ((byte) (addr >> 8));    // high order byte
 	Wire.write ((byte) (addr & 0xFF));  // low-order byte
-	I2C_writeAnything (met);
+	I2C_writeAnything (currmet);
 	err = Wire.endTransmission ();
-	delay(10);  // needs 5ms for page write
+	delay(200);  // 
 	return err;  // cannot write to device
 }
 byte readStructEEPROM(unsigned int addr){

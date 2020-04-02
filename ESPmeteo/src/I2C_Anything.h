@@ -21,5 +21,3 @@ template <typename T> unsigned int I2C_readAnything(T& value)
           *p++ = Wire.read();
     return i;
   }  // end of I2C_readAnything
-
-
