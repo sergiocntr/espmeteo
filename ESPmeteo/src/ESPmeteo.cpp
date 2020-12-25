@@ -23,21 +23,24 @@ void setWifiOff(){
 bool connectWifi(){
 	//setIP(marinerUan,marinerId);
 	WiFi.hostname("espMeteo");      // DHCP Hostname (useful for finding device for static lease)
-  	WiFi.mode(WIFI_STA);
-  	WiFi.forceSleepWake();
+  WiFi.mode(WIFI_STA);
+  WiFi.forceSleepWake();
 	delay(10);
-  	WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
-  	delay(10);
-  	WiFi.begin(ssid, password);
-  	delay(10);
+  WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
+  delay(10);
+  WiFi.begin(ssid, password);
+  delay(10);
 	uint32_t wifi_initiate = millis();
-  	while (WiFi.status() != WL_CONNECTED) {
-    if ((millis() - wifi_initiate) > 5000L) {
-      	return false;
-    	}
-    delay(700);
+  while (WiFi.status() != WL_CONNECTED) {
+    if ((millis() - wifi_initiate) > 4000L) {
+      return false;
+    }
+    delay(400);
   }
   delay(10);
+   if(!Ping.ping(remote_host)) {
+    return false;
+  }
   return true;
 }
 bool connectMQTT(){
@@ -74,14 +77,14 @@ void setup(){
 	pinMode(LED_BUILTIN,OUTPUT);
   	digitalWrite(LED_BUILTIN,HIGH);
 	#endif
-	setWifiOff();
+	setWifiOff(); //APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
-	uint8_t nrRecord = readEEPROM(nValuesAddr);
+	uint8_t nrRecord = readEEPROM(nValuesAddr); //VERIFICO SE HO SALVATO DEI DATI IN MEMORIA
 	delay(10);
-	if(nrRecord==255) {
+	if(nrRecord==255) { //QUESTO SUCCEDE SE SI ÈÌ SPORCATA LA MEMORIA,NEL QUALE CASEO RESETTO IL VALORE A ZERO
 		nrRecord = 0;
-		writeEEPROM(nValuesAddr,nrRecord); //update storage records nr on I2C eeprom
+		writeEEPROM(nValuesAddr,nrRecord); 
 	}
 	delay(10);
 	#ifdef DEBUGMIO
@@ -104,21 +107,24 @@ void setup(){
 	#ifdef DEBUGMIO
 		blinkLed(3,risp);
 	#endif
-	if(!risp) return;
+	if(!risp){
+		storeData(nrRecord);
+		delay(100);
+		return;
+	}
   	risp = sendThing();
 	#ifdef DEBUGMIO
 		blinkLed(4,risp);
 	#endif
 	smartDelay(100);
 	risp = serializeData(nrRecord);
-	if(risp)
+	delay(100);
+	if(risp) 
 	{
-		writeEEPROM(nValuesAddr,0);	//reset storage records nr on I2C eeprom
-		delay(100);
+		if (nrRecord > 0){writeEEPROM(nValuesAddr,0);}	//reset storage records nr on I2C eeprom
 	}else
 	{
 		storeData(nrRecord);
-		delay(100);
 	}
 	#ifdef DEBUGMIO
 		blinkLed(5,risp);
@@ -126,12 +132,9 @@ void setup(){
 	delay(100);
 }
 void loop(){
-	WiFi.persistent(false);   // Solve possible wifi init errors (re-add at 6.2.1.16 #4044, #4083)
-  	WiFi.disconnect(true);    // Delete SDK wifi config
-  	delay(200);
-  	//WiFi.setOutputPower(17);        // 10dBm == 10mW, 14dBm = 25mW, 17dBm = 50mW, 20dBm = 100mW
-	WiFi.mode(WIFI_OFF);
-	WiFi.forceSleepBegin();
+	//meteoclient.disconnect();
+	smartDelay(100);
+	setWifiOff();
 	delay(100);
 	shutDownNow();
 	delay(1000);

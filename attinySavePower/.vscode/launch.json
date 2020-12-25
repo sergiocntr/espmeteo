@@ -13,10 +13,11 @@
             "request": "launch",
             "name": "PIO Debug",
             "executable": "/home/sergio/Documents/PlatformIO/Projects/finiti/espmeteo/attinySavePower/.pio/build/attiny/firmware.elf",
+            "projectEnvName": "attiny",
             "toolchainBinDir": "/home/sergio/.platformio/packages/toolchain-atmelavr/bin",
             "preLaunchTask": {
                 "type": "PlatformIO",
-                "task": "Pre-Debug"
+                "task": "Pre-Debug (attiny)"
             },
             "internalConsoleOptions": "openOnSessionStart"
         },
@@ -25,6 +26,7 @@
             "request": "launch",
             "name": "PIO Debug (skip Pre-Debug)",
             "executable": "/home/sergio/Documents/PlatformIO/Projects/finiti/espmeteo/attinySavePower/.pio/build/attiny/firmware.elf",
+            "projectEnvName": "attiny",
             "toolchainBinDir": "/home/sergio/.platformio/packages/toolchain-atmelavr/bin",
             "internalConsoleOptions": "openOnSessionStart"
         }

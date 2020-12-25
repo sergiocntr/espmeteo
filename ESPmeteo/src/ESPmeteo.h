@@ -15,6 +15,7 @@
 #include <ArduinoJson.h>
 #include "okbmpdhtweb.h"
 #include <ESP8266HTTPClient.h>
+#include <ESP8266Ping.h>
 WiFiClient espClient;
 PubSubClient meteoclient(espClient);
 //ESP-01 SDA - SCL pin
@@ -26,7 +27,7 @@ uint8_t dati[2];// attiny low and high voltage byte
 //I2C eeprom stuff
 const int SLAVE_ATTINY_ADDRESS = 2; //
 const int SLAVE_ADDRESS = 0X50; //classic I2C EEPROM address
-const uint16_t nValuesAddr = 0x0FFF; //address on I2C EEPROM ,we store there how many reecords we have
+const uint16_t nValuesAddr = 0x0FFE; //address on I2C EEPROM ,we store there how many reecords we have
 #include "eeprommio.h"
 void callback(char* topic, byte* payload, unsigned int length);
 uint8_t printWEBJSON(uint8_t records);
@@ -36,4 +37,5 @@ bool sendThing();
 void storeData(uint8_t nrRecords);
 uint8_t bm(meteoData& met);
 bool serializeData(uint8_t nrRecords);
+const char* remote_host = "www.google.com";
 #endif
