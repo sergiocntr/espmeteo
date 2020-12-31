@@ -15,23 +15,26 @@ BME280I2C::Settings settings(
 );
 BME280I2C bme(settings);
 //BME280I2C bme;
-uint8_t bm(meteoData& met)
+uint8_t bm(meteoData& currmet)
 {
   float temp(NAN), hum(NAN), pres(NAN);
   BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
   BME280::PresUnit presUnit(BME280::PresUnit_hPa);
-  unsigned long mytime=millis();
+  uint32_t mytime=millis();
   while(!bme.begin())
   {
-    if (millis()-mytime > 2000) {
+    if (millis()-mytime > 3000) {
       return 1;
     }
     delay(400);
   }
+  delay(400);
   bme.read(pres, temp, hum,tempUnit,presUnit);
-  met.humidityBMP = hum;
-	met.temperatureBMP = temp;
-	met.externalPressure = pres;
+  delay(10);
+  currmet.humidityBMP = hum;
+	currmet.temperatureBMP = temp;
+	currmet.externalPressure = pres;
+  delay(10);
   return 0;
 }
 #endif

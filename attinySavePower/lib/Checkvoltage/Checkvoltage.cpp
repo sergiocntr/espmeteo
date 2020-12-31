@@ -28,7 +28,7 @@ void Checkvoltage::readVcc() {
   tws_delay(5); // Wait for Vref to settle
   ADCSRA |= _BV(ADSC); // Start conversion
   while (bit_is_set(ADCSRA,ADSC)); // measuring
-  volt = ADC; //Needs to be 16 bit long ! This only reads the two registers in one command
+  this->volt = ADC; //Needs to be 16 bit long ! This only reads the two registers in one command
   volt = 1126400L / volt; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
   //splitto in due byte
   dati[0]=volt & 0xff;
