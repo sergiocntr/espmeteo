@@ -28,7 +28,7 @@ uint8_t bm(meteoData& currmet)
     }
     delay(400);
   }
-  delay(400);
+  //delay(400);
   bme.read(pres, temp, hum,tempUnit,presUnit);
   delay(10);
   currmet.humidityBMP = hum;

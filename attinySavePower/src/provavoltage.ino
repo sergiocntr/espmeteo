@@ -15,11 +15,11 @@ Checkvoltage cv;
 #define TWI_RX_BUFFER_SIZE ( 16 )
 #endif
 int pinLed = 1;
-int watch_dog_counter = 100;
-volatile byte reg_position = 0;
-const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino
+volatile int watch_dog_counter = 100;
+byte reg_position = 0;
+//const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino
 void setup(){
-  delay(300);
+  //delay(300);
   pinMode(pinLed,OUTPUT);
   cv.begin();
   cv.readVcc();
@@ -41,14 +41,15 @@ void loop(){
 }
 void requestEvent()
 {
-  TinyWireS.send(cv.dati[reg_position]);
-  // Increment the reg position on each read, and loop back to zero
+  TinyWireS.send(cv.dati[0]);
+  TinyWireS.send(cv.dati[1]);
+  /* TinyWireS.send(cv.dati[reg_position]);
   reg_position++;
   TinyWireS.send(cv.dati[reg_position]);
   if (reg_position >= reg_size)
   {
     reg_position = 0;
-  }
+  } */
 }
 void receiveEvent(uint8_t howMany)
 {

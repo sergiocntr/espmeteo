@@ -147,87 +147,13 @@ void storeData(uint8_t nrRecords){
 }
 void callback(char* topic, byte* payload, unsigned int length){}
 void shutDownNow(){
-/* //<<<<<<< HEAD
-//<<<<<<< HEAD
-  //this tell to attiny to power down ESP
-  DEBPRINT("spegniti");
-  Wire.begin(default_sda_pin, default_scl_pin);
-  Wire.beginTransmission (2);
+
+	Wire.begin(default_sda_pin, default_scl_pin);
+	delay(100);
+	Wire.beginTransmission (2);
   Wire.write (20);
   Wire.endTransmission(true);
-}
-void storeData(uint8_t nrRecords){
-  uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes ,we use 32 bytes page write
-  writeStructEEPROM(availAddress);	//write struct on I2C eeprom
-  nrRecords++; //add record's nr
-  writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
-}
-uint8_t requestSensorsValues(){
-  Wire.requestFrom(SLAVE_ATTINY_ADDRESS, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
-  uint8_t i=0;
-  while (Wire.available()){
-    dati[i] = Wire.read();    // receive a byte as character
-    i++;
-  }
-  voltage = (dati[1]<<8) | dati[0];
-  met.battery=voltage;
-  uint8_t res= bm(met);									// read BMP080 values
-  res= bm(met);									// read BMP080 values
-  return res;
-}
-uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
-  StaticJsonBuffer<2000> JSONbuffer;
-  JsonObject& JSONencoder = JSONbuffer.createObject();
-  JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
-  JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
-  JsonArray& jsonPress = JSONencoder.createNestedArray("press");
-  JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
-  jsonHum.add(met.humidityBMP);
-  jsonTemp.add(met.temperatureBMP);
-  jsonPress.add(met.externalPressure);
-  jsonBat.add(met.battery);
-  yield();
-  if(nrRecords>0){
-  nrRecords--;
-    DEBPRINT(nrRecords);
-    for (int i =nrRecords ; i >= 0 ; i--){
-      readStructEEPROM(32 * i); // read I2C eeprom
-      delay(10);
-      jsonHum.add(met.humidityBMP);
-      jsonTemp.add(met.temperatureBMP);
-      jsonPress.add(met.externalPressure);
-      jsonBat.add(met.battery);
-    }
-  }
-  smartDelay(100);
-  int httpResponseCode=0;
-  String s="";
-  JSONencoder.prettyPrintTo(s);
-  yield();
-  HTTPClient http;
-  http.begin(c,post_serverJSON);
-  httpResponseCode = http.PUT(s);
-  DEBPRINT(s);
-  smartDelay(1500);
-  http.end();  //Free resources
-  if(httpResponseCode==200){
-    DEBPRINT(httpResponseCode);   //Print return code
-    DEBPRINT(response);           //Print request answer
-    return 0;
-   }else{
-    DEBPRINT("Error on sending POST: ");
-    DEBPRINT(httpResponseCode);
-    return 1;
-  }
-======= 
-	//this tell to attiny to power down ESP
 
-	//DEBPRINT("spegniti");
-	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(100);
-	Wire.beginTransmission (2);
-  	Wire.write (20);
-  	Wire.endTransmission(true);
 }
 uint8_t requestSensorsValues(){
 	//bool sStop=true;
@@ -244,32 +170,6 @@ uint8_t requestSensorsValues(){
 	res= bm(currmet);									// read BMP080 values
 	return res;
 }
-//=======*/
-	//this tell to attiny to power down ESP
-
-	//DEBPRINT("spegniti");
-	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(100);
-	Wire.beginTransmission (2);
-  	Wire.write (20);
-  	Wire.endTransmission(true);
-}
-uint8_t requestSensorsValues(){
-	//bool sStop=true;
-	Wire.requestFrom(SLAVE_ATTINY_ADDRESS, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
-	uint8_t i=0;
-	while (Wire.available()){
-		dati[i] = Wire.read();    // receive a byte as character
-		i++;
-  	}
-	voltage = (dati[1]<<8) | dati[0];
-	currmet.battery=voltage;
-	delay(100);
-  	uint8_t res= bm(currmet);									// read BMP080 values
-	res= bm(currmet);									// read BMP080 values
-	return res;
-}
-//>>>>>>> prova
 bool serializeData(uint8_t nrRecords){
 	DynamicJsonDocument doc(2048);
 	JsonArray jsonHum = doc.createNestedArray("hum");

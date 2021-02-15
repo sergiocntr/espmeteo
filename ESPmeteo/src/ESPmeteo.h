@@ -1,5 +1,6 @@
 #ifndef espmeteo_h
 #define espmeteo_h
+#pragma once
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 //#define DEBUGMIO
