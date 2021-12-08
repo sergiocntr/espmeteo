@@ -17,6 +17,8 @@
 #include "okbmpdhtweb.h"
 #include <ESP8266HTTPClient.h>
 #include <ESP8266Ping.h>
+//#include<espnow.h>
+#include<espNowMeteo.h>
 WiFiClient espClient;
 PubSubClient meteoclient(espClient);
 //ESP-01 SDA - SCL pin
@@ -39,4 +41,5 @@ void storeData(uint8_t nrRecords);
 uint8_t bm(meteoData& met);
 bool serializeData(uint8_t nrRecords);
 const char* remote_host = "www.google.com";
+//EC:FA:BC:0D:5A:52
 #endif

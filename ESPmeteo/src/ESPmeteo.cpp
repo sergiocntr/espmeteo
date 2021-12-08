@@ -94,6 +94,7 @@ void setup(){
 	requestSensorsValues();
 	delay(10);
 	#endif
+	if(nrRecord>0){		//SE MAGGIORE DI ZERO TRASMETTO NEL MODO NORMALE
 	bool risp = connectWifi();
 	#ifdef DEBUGMIO
 		blinkLed(2,risp);
@@ -121,7 +122,7 @@ void setup(){
 	delay(100);
 	if(risp) 
 	{
-		if (nrRecord > 0){writeEEPROM(nValuesAddr,0);}	//reset storage records nr on I2C eeprom
+		writeEEPROM(nValuesAddr,0);	//reset storage records nr on I2C eeprom
 	}else
 	{
 		storeData(nrRecord);
@@ -130,6 +131,10 @@ void setup(){
 		blinkLed(5,risp);
 	#endif
 	delay(100);
+	}else{
+		
+	invioNow();	
+	}
 }
 void loop(){
 	//meteoclient.disconnect();
