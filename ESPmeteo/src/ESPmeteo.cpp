@@ -1,176 +1,170 @@
 #include "ESPmeteo.h"
-void blinkLed(uint8_t volte,bool l){
-uint16_t tempo;
-if(l){tempo=250;}else{tempo=500;}
-  for (uint8_t i = 0; i < volte; i++)
-  {
-    digitalWrite(LED_BUILTIN,LOW);
-    delay(tempo);
-    digitalWrite(LED_BUILTIN,HIGH);
-    delay(tempo);
-  }
-}
-void setWifiOff(){
-	wifi_set_sleep_type(LIGHT_SLEEP_T);
-	WiFi.persistent(false);   // Solve possible wifi init errors (re-add at 6.2.1.16 #4044, #4083)
-  	WiFi.disconnect(true);    // Delete SDK wifi config
-  	delay(200);
-  	WiFi.mode(WIFI_OFF);
-	WiFi.forceSleepBegin();
-	delay(100);
-
-}
-bool connectWifi(){
-	//setIP(marinerUan,marinerId);
-	WiFi.hostname("espMeteo");      // DHCP Hostname (useful for finding device for static lease)
-  WiFi.mode(WIFI_STA);
-  WiFi.forceSleepWake();
-	delay(10);
-  WiFi.config(marinerUan, gateway, subnet,dns1); // Set static IP (2,7s) or 8.6s with DHCP  + 2s on battery
-  delay(10);
-  WiFi.begin(ssid, password);
-  delay(10);
-	uint32_t wifi_initiate = millis();
-  while (WiFi.status() != WL_CONNECTED) {
-    if ((millis() - wifi_initiate) > 4000L) {
-      return false;
-    }
-    delay(400);
-  }
-  delay(10);
-   if(!Ping.ping(remote_host)) {
-    return false;
-  }
-  return true;
-}
-bool connectMQTT(){
-	meteoclient.setServer(mqtt_server, mqtt_port);
-  	meteoclient.setCallback(callback);
-  	String clientId = String(marinerId);
-  	clientId += String(random(0xffff), HEX);
-	delay(100);
-	meteoclient.connect(clientId.c_str(),mqttUser,mqttPass);
-	uint32_t wifi_initiate = millis();
-  	smartDelay(100);
-	while (!meteoclient.connected()){
-		if ((millis() - wifi_initiate) > 5000L) {
-      	return false;
-    	}
-		delay(700);
-  	}
-	delay(100);
-  	return true;
-}
-void faiSampleDummy(){
-	for (size_t i = 0; i < 4; i++)
-	{
-		requestSensorsValues();
-		delay(10);
-		storeData(i);
-		delay(100);
-		blinkLed(1,true);
-		delay(2000);
-	}
-}
-void setup(){
-	#ifdef DEBUGMIO
-	pinMode(LED_BUILTIN,OUTPUT);
-  	digitalWrite(LED_BUILTIN,HIGH);
-	#endif
-	setWifiOff(); //APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
+char str[80];
+void setup()
+{
+	delay(2000);
+#ifdef DEBUGMIO
+	pinMode(LED_BUILTIN, OUTPUT);
+	digitalWrite(LED_BUILTIN, HIGH);
+	Serial.begin(9600);
+	Serial.println("partito");
+#endif
+	setWifiOff(); // APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
-	uint8_t nrRecord = readEEPROM(nValuesAddr); //VERIFICO SE HO SALVATO DEI DATI IN MEMORIA
+	nValuesAddr = recuperoPosMemoria(); //
+#ifdef DEBUGMIO
+	sprintf(str, "Trovato AA nella cella  %u", nValuesAddr);
+	Serial.println(str);
+#endif
+	nValuesAddr++;
+	uint8_t nrRecord = readEEPROM(nValuesAddr); // POSIZIONE MEMORIA AA + 1 -> POSIZIONE CON I DATI
 	delay(10);
-	if(nrRecord==255) { //QUESTO SUCCEDE SE SI ÈÌ SPORCATA LA MEMORIA,NEL QUALE CASEO RESETTO IL VALORE A ZERO
+#ifdef DEBUGMIO
+	sprintf(str, "Ci sono %u record memorizzati.", nrRecord);
+	Serial.println(str);
+#endif
+
+	if (nrRecord == 255)
+	{ // QUESTO SUCCEDE SE SI ÈÌ SPORCATA LA MEMORIA,NEL QUALE CASEO RESETTO IL VALORE A ZERO
 		nrRecord = 0;
-		writeEEPROM(nValuesAddr,nrRecord); 
+		writeEEPROM(nValuesAddr, nrRecord);
 	}
 	delay(10);
-	#ifdef DEBUGMIO
-	blinkLed(nrRecord,true);
-	faiSampleDummy();
-	#else
+#ifdef DEBUGMIO
+	blinkLed(3, true);
+	// faiSampleDummy();
+	uint8_t res = requestSensorsValues();
+	sprintf(str, "requestSensorsValues ha tornato  %u .", res);
+	Serial.println(str);
+#else
 	requestSensorsValues();
 	delay(10);
-	#endif
+#endif
+
 	bool risp = connectWifi();
-	#ifdef DEBUGMIO
-		blinkLed(2,risp);
-	#endif
-	if(!risp){
+// Serial.println("2");
+#ifdef DEBUGMIO
+	blinkLed(2, risp);
+#endif
+	if (!risp)
+	{ // SE NON HO CONNESSIONE MEMORIZZO I DATI SULLA MEMORIA I2C
+#ifdef DEBUGMIO
+	sprintf(str, "La connessione WIFI è fallita.");
+	Serial.println(str);
+#endif
+	storeData(nrRecord);
+	delay(100);
+	loop();
+	}
+#ifdef DEBUGMIO
+	sprintf(str, "WIFI OK");
+	Serial.println(str);
+#endif
+	risp = connectMQTT();
+#ifdef DEBUGMIO
+	blinkLed(3, risp);
+#endif
+	if (!risp)
+	{ // SE NON HO MQTT MEMORIZZO I DATI SULLA MEMORIA I2C
+#ifdef DEBUGMIO
+		sprintf(str, "La connessione MQTT è fallita.");
+		Serial.println(str);
+		// publish(logTopic,str);
+		// smartDelay(100);
+#endif
 		storeData(nrRecord);
 		delay(100);
 		loop();
 	}
-	risp = connectMQTT();
-	#ifdef DEBUGMIO
-		blinkLed(3,risp);
-	#endif
-	if(!risp){
-		storeData(nrRecord);
-		delay(100);
-		return;
-	}
-  	risp = sendThing();
-	#ifdef DEBUGMIO
-		blinkLed(4,risp);
-	#endif
+#ifdef DEBUGMIO
+	sprintf(str, "MQTT OK");
+	Serial.println(str);
+	meteoclient.publish(logTopic, str);
 	smartDelay(100);
-	risp = serializeData(nrRecord);
-	delay(100);
-	if(risp) 
-	{
-		if (nrRecord > 0){writeEEPROM(nValuesAddr,0);}	//reset storage records nr on I2C eeprom
-	}else
-	{
-		storeData(nrRecord);
+#endif
+	if (nrRecord > 0)
+	{ // SE MAGGIORE DI ZERO PREPARO TUTTI I RECORD DA TRASMETTERE
+#ifdef DEBUGMIO
+		sprintf(str, "MANDO PIU' RECORD");
+		Serial.println(str);
+		meteoclient.publish(logTopic, str);
+		smartDelay(100);
+#endif
+// risp = sendThing();
+#ifdef DEBUGMIO
+		blinkLed(4, risp);
+#endif
+		smartDelay(100);
+		risp = serializeData(nrRecord);
+		delay(100);
+
+		if (risp)
+		{
+			// Ho mandato i record memorizzati ,bene quindipunto alla nuova cella
+			writeEEPROM(nValuesAddr, 0XAA);	 // Metto AA nella  cella che adesso ha i record
+			writeEEPROM(nValuesAddr - 1, 0); // Cancello AA dalla vecchia cella
+// nValuesAddr++; //Punto alla nuova cella di memorizzazione record
+#ifdef DEBUGMIO
+			sprintf(str, "Nuova cella di memorizzazione %X", nValuesAddr);
+			Serial.println(str);
+			meteoclient.publish(logTopic, str);
+			smartDelay(100);
+#endif
+		}
+		else
+		{
+			storeData(nrRecord);
+		}
 	}
-	#ifdef DEBUGMIO
-		blinkLed(5,risp);
-	#endif
-	delay(100);
+	else
+	{
+		sendThing();
+	}
 }
-void loop(){
-	//meteoclient.disconnect();
+void loop()
+{
+#ifdef DEBUGMIO
+	sprintf(str, "Spengo");
+	Serial.println(str);
+	meteoclient.publish(logTopic, str);
+	smartDelay(100);
+#endif
 	smartDelay(100);
 	setWifiOff();
 	delay(100);
 	shutDownNow();
-	delay(1000);
 }
-void storeData(uint8_t nrRecords){
-  uint16_t availAddress = 32 * nrRecords;	//MeteoData is 24 bytes ,we use 32 bytes page write
-  writeStructEEPROM(availAddress);	//write struct on I2C eeprom
-  nrRecords++; //add record's nr
-  writeEEPROM(nValuesAddr,nrRecords); //update storage records nr on I2C eeprom
-}
-void callback(char* topic, byte* payload, unsigned int length){}
-void shutDownNow(){
+
+
+void shutDownNow()
+{
 
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(100);
-	Wire.beginTransmission (2);
-  Wire.write (20);
-  Wire.endTransmission(true);
-
+	Wire.beginTransmission(2);
+	Wire.write(20);
+	Wire.endTransmission(true);
 }
-uint8_t requestSensorsValues(){
-	//bool sStop=true;
-	Wire.requestFrom(SLAVE_ATTINY_ADDRESS, 2);    // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
-	uint8_t i=0;
-	while (Wire.available()){
-		dati[i] = Wire.read();    // receive a byte as character
+uint8_t requestSensorsValues()
+{
+	// bool sStop=true;
+	Wire.requestFrom(SLAVE_ATTINY_ADDRESS, 2); // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
+	uint8_t i = 0;
+	while (Wire.available())
+	{
+		dati[i] = Wire.read(); // receive a byte as character
 		i++;
-  	}
-	voltage = (dati[1]<<8) | dati[0];
-	currmet.battery=voltage;
+	}
+	voltage = (dati[1] << 8) | dati[0];
+	currmet.battery = voltage;
 	delay(100);
-  	uint8_t res= bm(currmet);									// read BMP080 values
-	res= bm(currmet);									// read BMP080 values
+	uint8_t res = bm(currmet); // read BMP080 values
+	res = bm(currmet);		   // read BMP080 values
 	return res;
 }
-bool serializeData(uint8_t nrRecords){
+bool serializeData(uint8_t nrRecords)
+{
 	DynamicJsonDocument doc(2048);
 	JsonArray jsonHum = doc.createNestedArray("hum");
 	JsonArray jsonTemp = doc.createNestedArray("temp");
@@ -182,7 +176,8 @@ bool serializeData(uint8_t nrRecords){
 	jsonPress.add(currmet.externalPressure);
 	jsonBat.add(currmet.battery);
 	delay(10);
-	for (int i =  nrRecords-1 ; i >= 0 ; i--){
+	for (int i = nrRecords - 1; i >= 0; i--)
+	{
 		readStructEEPROM(32 * i); // read I2C eeprom
 		delay(10);
 		jsonHum.add(met.humidityBMP);
@@ -193,117 +188,41 @@ bool serializeData(uint8_t nrRecords){
 	}
 	String s;
 	serializeJson(doc, s);
-	delay(100);
 	HTTPClient http;
 	delay(10);
-	http.begin(espClient,post_serverJSON);
+	http.begin(espClient, post_serverJSON);
 	delay(100);
 	int httpResponseCode = http.PUT(s);
 	delay(100);
-	http.end();  //Free resources
+	http.end(); // Free resources
 	delay(100);
-	if(httpResponseCode==200)return true;
+	if (httpResponseCode == 200)
+		return true;
 	return false;
-	
 }
-/*uint8_t printWEBJSON(uint8_t nrRecords) {//timeAvailable -> live mesaures
- 	DEBUG_PRINT("nr record: "+ String(nrRecords));
-	 if(nrRecords>0){
-		StaticJsonBuffer<2000> JSONbuffer;
-		JsonObject& JSONencoder = JSONbuffer.createObject();
-		JsonArray& jsonHum = JSONencoder.createNestedArray("hum");
-		JsonArray& jsonTemp = JSONencoder.createNestedArray("temp");
-		JsonArray& jsonPress = JSONencoder.createNestedArray("press");
-		JsonArray& jsonBat = JSONencoder.createNestedArray("bat");
-		delay(100);
-		nrRecords--;
-		for (int i =  nrRecords ; i >= 0 ; i--){
-			readStructEEPROM(32 * i); // read I2C eeprom
-			delay(10);
-			jsonHum.add(met.humidityBMP);
-			jsonTemp.add(met.temperatureBMP);
-			jsonPress.add(met.externalPressure);
-			jsonBat.add(met.battery);
-		}
-		
-		smartDelay(100);
-		jsonHum.add(met.humidityBMP);
-		jsonTemp.add(met.temperatureBMP);
-		jsonPress.add(met.externalPressure);
-		jsonBat.add(met.battery);
-		int httpResponseCode=0;
-		String s="";
-		JSONencoder.prettyPrintTo(s);
-		smartDelay(100);
-		HTTPClient http;
-		http.begin(espClient,post_serverJSON);
-		httpResponseCode = http.PUT(s);
-		delay(100);
-		Serial.println(s);
-		delay(100);
-		http.end();  //Free resources
-		if(httpResponseCode==200){
-			//DEBPRINT(httpResponseCode);   //Print return code
-			////DEBPRINT(response);           //Print request answer
-			writeEEPROM(nValuesAddr,0); //reset storage records nr on I2C eeprom
-			return 0;
-		}else{
-			//DEBPRINT("Error on sending POST: ");
-			//DEBPRINT(httpResponseCode);
-			return 1;
-		}
-	}
-	else{
-		//Serial.begin(9600);
-		smartDelay(100);
-    String s =String("GET /meteofeletto/swpi_logger.php?hum=" + String(met.humidityBMP) +
-    +"&&pwd=" + webpass +
-    +"&&temp=" + String(met.temperatureBMP) +
-    +"&&press=" + String(met.externalPressure) +
-    +"&&bat=" + String(met.battery) +
-    + " HTTP/1.1\r\n" + "Host: " + host + "\r\n" + "Connection: close\r\n\r\n");
-    smartDelay(100);
-    //Serial.println(s);
-    if (espClient.connect(host, httpPort))
-		{
-			espClient.println(s);
-			smartDelay(100);
-		}
-  }
-  return 2;
-<<<<<<< HEAD
->>>>>>> prova
-}
-*/
-bool sendThing(){
+bool sendThing()
+{
 	StaticJsonDocument<256> doc;
-	
+
 	doc["topic"] = "Terrazza";
-	doc["Hum"] =currmet.humidityBMP;
-  	doc["Temp"] =currmet.temperatureBMP;
-  	doc["Press"] =currmet.externalPressure;
+	doc["mem"] = nValuesAddr;
+	doc["Hum"] = currmet.humidityBMP;
+	doc["Temp"] = currmet.temperatureBMP;
+	doc["Press"] = currmet.externalPressure;
+	doc["Batt"] = currmet.battery;
 	char JSONmessageBuffer[256];
 	smartDelay(100);
-	bool check =0;
+	bool check = 0;
 	serializeJson(doc, JSONmessageBuffer);
 	smartDelay(100);
 	for (uint8_t i = 0; i < 3; i++)
 	{
-		check=meteoclient.publish(extSensTopic,JSONmessageBuffer,true);
-		if(check) break;
+		check = meteoclient.publish(extSensTopic, JSONmessageBuffer, true);
+		if (check)
+			break;
 		smartDelay(100);
 	}
 	smartDelay(100);
 	meteoclient.disconnect();
 	return check;
-
-}
-void smartDelay(unsigned long ms){
-  unsigned long start = millis();
-  do
-  {
-
-		meteoclient.loop();
-    delay(10);
-  }while (millis() - start < ms);
 }

@@ -1,5 +1,4 @@
-#ifndef eeprommio_h
-#define eeprommio_h
+#pragma once
 byte writeStructEEPROM(unsigned int addr){
 	byte err;
 	Wire.beginTransmission(SLAVE_ADDRESS);
@@ -41,4 +40,30 @@ uint8_t readEEPROM(uint16_t eeaddress ){
 	if (Wire.available()) rdata = Wire.read();
 	return rdata;
 }
-#endif
+void storeData(uint8_t nrRecords)
+{
+	uint16_t availAddress = 32 * nrRecords; // MeteoData is 24 bytes ,we use 32 bytes page write
+	writeStructEEPROM(availAddress);		// write struct on I2C eeprom
+	nrRecords++;							// add record's nr
+	writeEEPROM(nValuesAddr, nrRecords);	// update storage records nr on I2C eeprom
+}
+uint16_t recuperoPosMemoria()
+{
+	// PER AUMENTARE LA VITA DELLA EMMORIA METTO UN BUFFER CIRCOLARE
+	// DOVE MEMORIZZARE IL NUMERO DI RECORD SALVATI
+	// OGNI VOLTA CHE SI CANCELLA LA POSIZIONE DI MEMORIA DI SCRIVE AA INVECE DI ZERO
+	// E SI USA LA CELLA DOPO
+	const uint16_t nValuesAddr = 0x0FE0; // indirizzo memoria di partenza
+	const uint8_t defaultValue = 0xAA;	 // valore di riferimento ,la cella attuale di memoria è quella dopo
+	for (uint16_t i = nValuesAddr; i < 0x0FFE; i++)
+	{
+		uint8_t myval = readEEPROM(i);
+		if (myval == defaultValue)
+		{
+
+			return i;
+		}
+	}
+	writeEEPROM(nValuesAddr, 0XAA);
+	return nValuesAddr;
+}

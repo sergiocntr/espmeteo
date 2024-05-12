@@ -16,6 +16,7 @@ Checkvoltage cv;
 #endif
 int pinLed = 1;
 volatile int watch_dog_counter = 100;
+uint32_t adesso;
 byte reg_position = 0;
 //const byte reg_size = sizeof(cv.dati); //dati son il valore della tensione vedi checkvoltage.ino
 void setup(){
@@ -28,28 +29,26 @@ void setup(){
   TinyWireS.begin(I2C_SLAVE_ADDRESS);
   TinyWireS.onReceive(receiveEvent);
   TinyWireS.onRequest(requestEvent);
+  adesso = millis();
 }
 void loop(){
-  if (watch_dog_counter>=100) {  // 90*8 sec =13 min : wait for timed out watchdog / flag is set when a watchdog timeout occurs
-    watch_dog_counter=0;        // reset flag
-    digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
-    //tws_delay(20000); //aspetto 20 secondi che faccia la trasmissione
-    //powerDownEsp(); // casomai spengo
-
+  while( (millis() - adesso) < 25000 )
+  {
+    if (watch_dog_counter>=100) 
+    {  // 90*8 sec =13 min : wait for timed out watchdog / flag is set when a watchdog timeout occurs
+      watch_dog_counter=0;        // reset flag
+      digitalWrite(pinLed,HIGH);  // let led blink -> esp-01 power on
+   }
+    tws_delay(500);
   }
-  TinyWireS_stop_check();
+  powerDownEsp();
+  
 }
 void requestEvent()
 {
   TinyWireS.send(cv.dati[0]);
   TinyWireS.send(cv.dati[1]);
-  /* TinyWireS.send(cv.dati[reg_position]);
-  reg_position++;
-  TinyWireS.send(cv.dati[reg_position]);
-  if (reg_position >= reg_size)
-  {
-    reg_position = 0;
-  } */
+  
 }
 void receiveEvent(uint8_t howMany)
 {

@@ -252,7 +252,13 @@ bool serializeData(uint8_t nrRecords){
 		}
 	}
 	else{
-		//Serial.begin(9600);
+		/meteofeletto/swpi_logger.php?hum=" + String(met.humidityBMP) +
+    +"&&pwd=" + webpass +
+    +"&&temp=" + String(met.temperatureBMP) +
+    +"&&press=" + String(met.externalPressure) +
+    +"&&bat=" + String(met.battery) +
+
+		http://www.developteamgold.altervista.org//meteofeletto/swpi_logger.php?hum={{{path}}}&pwd=admin&temp={{{temp}}}&press={{{press}}}&bat={{{bat}}}
 		smartDelay(100);
     String s =String("GET /meteofeletto/swpi_logger.php?hum=" + String(met.humidityBMP) +
     +"&&pwd=" + webpass +
