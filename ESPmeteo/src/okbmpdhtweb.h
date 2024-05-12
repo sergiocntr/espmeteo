@@ -15,6 +15,15 @@ BME280I2C::Settings settings(
 );
 BME280I2C bme(settings);
 //BME280I2C bme;
+float truncate(float val) 
+{
+    int x =(int)(val * 100);
+    float y=0.00;
+    y= (float)x/100;
+    return y;
+   
+}
+
 uint8_t bm(meteoData& currmet)
 {
   float temp(NAN), hum(NAN), pres(NAN);
@@ -31,6 +40,10 @@ uint8_t bm(meteoData& currmet)
   //delay(400);
   bme.read(pres, temp, hum,tempUnit,presUnit);
   delay(10);
+  // pres = truncate(pres);
+  // temp = truncate(temp);
+  // hum = truncate(hum);
+  // delay(10);
   currmet.humidityBMP = hum;
 	currmet.temperatureBMP = temp;
 	currmet.externalPressure = pres;
