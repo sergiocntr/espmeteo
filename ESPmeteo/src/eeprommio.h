@@ -1,55 +1,71 @@
+// eeprommio.h
 #pragma once
-byte writeStructEEPROM(unsigned int addr){
+byte writeStructEEPROM(unsigned int addr)
+{
 	byte err;
 	Wire.beginTransmission(SLAVE_ADDRESS);
-	Wire.write ((byte) (addr >> 8));    // high order byte
-	Wire.write ((byte) (addr & 0xFF));  // low-order byte
-	I2C_writeAnything (currmet);
-	err = Wire.endTransmission ();
-	delay(200);  // 
-	return err;  // cannot write to device
+	Wire.write((byte)(addr >> 8));	 // high order byte
+	Wire.write((byte)(addr & 0xFF)); // low-order byte
+	I2C_writeAnything(currmet);
+	err = Wire.endTransmission();
+	delay(200); //
+	return err; // cannot write to device
 }
-byte readStructEEPROM(unsigned int addr){
-  byte err;
-	Wire.beginTransmission (SLAVE_ADDRESS);
-  Wire.write ((byte) (addr >> 8));    // high order byte
-  Wire.write ((byte) (addr & 0xFF));  // low-order byte
-  err = Wire.endTransmission ();
+byte readStructEEPROM(unsigned int addr)
+{
+	byte err;
+	Wire.beginTransmission(SLAVE_ADDRESS);
+	Wire.write((byte)(addr >> 8));	 // high order byte
+	Wire.write((byte)(addr & 0xFF)); // low-order byte
+	err = Wire.endTransmission();
 	// initiate blocking read into internal buffer
-  Wire.requestFrom (SLAVE_ADDRESS, sizeof(met));
+	Wire.requestFrom(SLAVE_ADDRESS, sizeof(met));
 
-  I2C_readAnything (met);
+	I2C_readAnything(met);
 
-  return err;
+	return err;
 }
-void writeEEPROM(uint16_t eeaddress, uint8_t data ){
-  Wire.beginTransmission(SLAVE_ADDRESS);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.write(data);
-  Wire.endTransmission();
+void writeEEPROM(uint16_t eeaddress, uint8_t data)
+{
+	Wire.beginTransmission(SLAVE_ADDRESS);
+	Wire.write((int)(eeaddress >> 8));	 // MSB
+	Wire.write((int)(eeaddress & 0xFF)); // LSB
+	Wire.write(data);
+	Wire.endTransmission();
 	delay(10);
 }
-uint8_t readEEPROM(uint16_t eeaddress ){
-  uint8_t rdata = 0xFF;
+uint8_t readEEPROM(uint16_t eeaddress)
+{
+	uint8_t rdata = 0xFF;
 	Wire.beginTransmission(SLAVE_ADDRESS);
-  Wire.write((int)(eeaddress >> 8));   // MSB
-  Wire.write((int)(eeaddress & 0xFF)); // LSB
-  Wire.endTransmission();
-	Wire.requestFrom(SLAVE_ADDRESS,1);
-	if (Wire.available()) rdata = Wire.read();
+	Wire.write((int)(eeaddress >> 8));	 // MSB
+	Wire.write((int)(eeaddress & 0xFF)); // LSB
+	Wire.endTransmission();
+	Wire.requestFrom(SLAVE_ADDRESS, 1);
+	if (Wire.available())
+		rdata = Wire.read();
 	return rdata;
 }
 void storeData(uint8_t nrRecords)
 {
-	uint16_t availAddress = 32 * nrRecords; // MeteoData is 24 bytes ,we use 32 bytes page write
-	writeStructEEPROM(availAddress);		// write struct on I2C eeprom
-	nrRecords++;							// add record's nr
-	writeEEPROM(nValuesAddr, nrRecords);	// update storage records nr on I2C eeprom
+	const uint8_t maxRecords = 250; // Limite massimo di 250 record
+	uint16_t availAddress;
+
+	if (nrRecords >= maxRecords)
+	{
+		// Se abbiamo raggiunto il limite massimo, iniziamo a sovrascrivere
+		nrRecords = 0; // Resetta l'indice per sovrascrivere i dati più vecchi
+	}
+
+	availAddress = 32 * nrRecords;	 // MeteoData è 24 byte, usiamo pagine di 32 byte
+	writeStructEEPROM(availAddress); // Scrive la struct nella EEPROM I2C
+	nrRecords++;					 // Incrementa il numero di record
+
+	writeEEPROM(nValuesAddr, nrRecords); // Aggiorna il numero di record memorizzati
 }
 uint16_t recuperoPosMemoria()
 {
-	// PER AUMENTARE LA VITA DELLA EMMORIA METTO UN BUFFER CIRCOLARE
+	// PER AUMENTARE LA VITA DELLA MEMORIA METTO UN BUFFER CIRCOLARE
 	// DOVE MEMORIZZARE IL NUMERO DI RECORD SALVATI
 	// OGNI VOLTA CHE SI CANCELLA LA POSIZIONE DI MEMORIA DI SCRIVE AA INVECE DI ZERO
 	// E SI USA LA CELLA DOPO

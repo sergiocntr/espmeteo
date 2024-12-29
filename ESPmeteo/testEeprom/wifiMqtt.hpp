@@ -34,20 +34,6 @@ void smartDelay(unsigned long mytime){
 bool reconnect() {
   delay(10);
   bool mqttOK=client.publish(logTopic, "prova connesso");
-  // delay(10);
-  // bool mqttOK=client.subscribe(systemTopic);
-  // delay(10);
-  // client.subscribe(casaSensTopic);
-  // delay(10);
-  // client.subscribe(extSensTopic);
-  // delay(10);
-  // client.subscribe(acquaTopic);
-  // delay(10);
-  // client.subscribe(riscaldaTopic);
-  // delay(10);
-  // client.subscribe(updateTopic);
-  // delay(10);
-  // bool mqttOK=client.subscribe(eneValTopic);
   client.loop();
 	return mqttOK;
   }

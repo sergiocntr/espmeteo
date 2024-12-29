@@ -1,5 +1,5 @@
-#ifndef okbmpdhtweb_h
-#define okbmpdhtweb_h
+//okbmpdhtweb.h
+#pragma once
 #include "cxonfig.h"
 #include <BME280I2C.h>
 #include <Wire.h>
@@ -44,10 +44,9 @@ uint8_t bm(meteoData& currmet)
   // temp = truncate(temp);
   // hum = truncate(hum);
   // delay(10);
-  currmet.humidityBMP = hum;
-	currmet.temperatureBMP = temp;
-	currmet.externalPressure = pres;
+currmet.humidityBMP = truncate(hum);
+currmet.temperatureBMP = truncate(temp);
+currmet.externalPressure = truncate(pres);
   delay(10);
   return 0;
 }
-#endif

@@ -1,5 +1,4 @@
-#ifndef eeprommio_h
-#define eeprommio_h
+#pragma once
 #include <Arduino.h>
 byte writeStructEEPROM(unsigned int addr){
 	byte err;
@@ -42,4 +41,3 @@ uint8_t readEEPROM(uint16_t eeaddress ){
 	if (Wire.available()) rdata = Wire.read();
 	return rdata;
 }
-#endif

@@ -1,6 +1,7 @@
+//I2C_Anything.h
 // Written by Nick Gammon
 // May 2012
-
+#pragma once
 #include <Arduino.h>
 #include <Wire.h>
 
