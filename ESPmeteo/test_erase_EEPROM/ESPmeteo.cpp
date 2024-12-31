@@ -24,6 +24,8 @@ void setup()
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
 	resetMemory();
+	delay(10);
+	resetCircBuffer();
 
 }
 void loop()

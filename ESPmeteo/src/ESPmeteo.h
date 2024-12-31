@@ -1,5 +1,6 @@
 //ESPmeteo.h
 #include <Arduino.h>
+#include "debugutils.h"
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <Wire.h>
@@ -15,7 +16,8 @@
 #include "m_wifi.h"
 #include "okbmpdhtweb.h"
 #include "eeprommio.h"
-#include "debugutils.h"
+#include "circularBufferData.h"
+
 
 uint8_t requestSensorsValues();
 void shutDownNow();
