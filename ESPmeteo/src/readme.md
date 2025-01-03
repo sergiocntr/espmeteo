@@ -12,18 +12,18 @@ struct meteoData{
 	float temperatureBMP; 		//4 byte
 	float externalPressure; 	//4 byte
   	uint16_t battery;			//2 byte
-	uint8_t flag;       		// 1 byte: flag per segnare se i dati sono validi
+	uint8_t counter;       		// 1 byte: counter record 
 	uint8_t checksum;   		// 1 byte: checksum per la validità dei dati
 };
 meteoData currmet;
 
-struct eepromBuffer {
+struct eeCircRecord {
     uint8_t wipeFlag = 0xFF;        // Default: 0xFF
     uint8_t flag = 0xAA;            // Default: 0xAA
     uint16_t pageAddress = 0;       // Default: 0
     uint16_t recordCount = 0;       // Default: 0
 };
-eepromBuffer eBuffer;
+eeCircRecord eBuffer;
 uint16_t eBufferAddress;
 ```
 
@@ -35,10 +35,16 @@ readLastPageAddressAndRecordCount()
 il quale si incarica di popolare la struct **eBuffer** e **eBufferAddress**
 
 2. Il programma a questo punto interroga il sensore meteo e popola la struct **currmet**
-3. Tentativo di connessione al WIFI
-- Se il tentativo fallisce chiama
+3. Se **eeCircRecord.recordCount > 0** aggiunge il record all EEPROM
 ```cpp
 void appendRecordToPage(meteoData newRecord)
 ```
-il quale si incarica di scrivere nella EEPROM il nuovo dato raccolto in **currmet** e di aggiornare **eepromBuffer** aumentando il record count di 1. Il processo finisce.
+4. Tentativo di connessione al WIFI
+- Se il tentativo fallisce spegne.
+- Se il tentativo ha successo manda **currmet** se **eeCircRecord.recordCount = 0** altrimenti recupera tutti i recordo con 
+```cpp
+void appendRecordToPage(meteoData newRecord)
+```
+
+il quale si incarica di scrivere nella EEPROM il nuovo dato raccolto in **currmet** e di aggiornare **eeCircRecord** aumentando il record count di 1. Il processo finisce.
 - Se il tentativo di connessione ha successo abbiamo due opzioni ,se **eBuffer.recordCount > 0** devo leggere la memoria

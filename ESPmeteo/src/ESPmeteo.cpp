@@ -1,27 +1,14 @@
 // ESPmeteo.cpp
 #include "ESPmeteo.h"
-char str[100];
-void printBufferLog()
+//#include <ArduinoJson.h>
+void shutDownNow()
 {
-#ifdef DEBUGMIO
-	// str[100];  // Assicurati che la dimensione sia abbastanza grande per contenere la stringa formattata
-	sprintf(str, "eBuffer - wipeFlag: 0x%02X, flag: 0x%02X, pageAddress: %u, recordCount: %u",
-			eBuffer.wipeFlag, eBuffer.flag, eBuffer.pageAddress, eBuffer.recordCount);
-	Serial.println(str);				// Stampa sulla seriale
-	wifiK::transmitMQTT(logTopic, str); // Pubblica su MQTT
-	wifiK::smartDelay(100);				// Ritardo per evitare flooding
-#endif
-}
-void printCurmetLog()
-{
-#ifdef DEBUGMIO
-	// str[100];  // Assicurati che la dimensione sia abbastanza grande per contenere la stringa formattata
-	sprintf(str, "Curmet - wipeFlag: 0x%02X, flag: 0x%02X, pageAddress: %u, recordCount: %u",
-			eBuffer.wipeFlag, eBuffer.flag, eBuffer.pageAddress, eBuffer.recordCount);
-	Serial.println(str);				// Stampa sulla seriale
-	wifiK::transmitMQTT(logTopic, str); // Pubblica su MQTT
-	wifiK::smartDelay(100);				// Ritardo per evitare flooding
-#endif
+
+	Wire.begin(default_sda_pin, default_scl_pin);
+	delay(100);
+	Wire.beginTransmission(2);
+	Wire.write(20);
+	Wire.endTransmission(true);
 }
 void blinkLed(uint8_t volte, bool l)
 {
@@ -43,101 +30,31 @@ void blinkLed(uint8_t volte, bool l)
 		delay(tempo);
 	}
 }
-void faiSampleDummy()
+void faiSampleDummy(eeCircRecord &eBuffer)
 {
 	uint8_t i = 1;
+
 	while (eBuffer.recordCount < 17)
 	{
 
 		// Simulazione dati sensore
-		currmet.temperatureBMP = random(20, 30) + random(0, 99) / 100.0;
-		currmet.humidityBMP = random(40, 60) + random(0, 99) / 100.0;
-		currmet.externalPressure = random(970, 1041); // Pressione atmosferica simulata
-		currmet.battery = random(3950, 4451);		  // Livello batteria simulato
-		currmet.checksum = 0xAB;					  // checksum
-		currmet.counter = eBuffer.recordCount;						  // counter
+		// currmet.temperatureBMP = random(20, 30) + random(0, 99) / 100.0;
+		// currmet.humidityBMP = random(40, 60) + random(0, 99) / 100.0;
+		// currmet.externalPressure = random(970, 1041); // Pressione atmosferica simulata
+		// currmet.battery = random(3950, 4451);		  // Livello batteria simulato
+		// currmet.checksum = 0xAB;					  // checksum
+		// currmet.counter = 0;						  // counter
 		delay(1500);
 
-		circBuf::appendRecordToEeprom(currmet);
-		circBuf::readLastPageAddressAndRecordCount();
-		printBufferLog();
+		// helpMet::calculateChecksum(currmet);
+		// helpMet::serializeMeteoData(mData, buffer);
+		// circBuf::appendRecordToEeprom(buffer);
+		// circBuf::readLastPageAddressAndRecordCount(eBuffer);
+		// helpMet::printBufferLog(eBuffer);
 		i++;
 	}
 }
 
-bool sendMultiple(uint8_t nrRecords) // MANDA AL SERVER TUTTI I RECORD PIU L'ULTIMO
-{
-	DynamicJsonDocument doc(1024);
-	JsonArray jsonHum = doc.createNestedArray("hum");
-	JsonArray jsonTemp = doc.createNestedArray("temp");
-	JsonArray jsonPress = doc.createNestedArray("press");
-	JsonArray jsonBat = doc.createNestedArray("bat");
-
-	delay(10);
-
-	// Aggiungi i dati correnti (curmet) per MQTT
-	jsonHum.add(currmet.humidityBMP);
-	jsonTemp.add(currmet.temperatureBMP);
-	jsonPress.add(currmet.externalPressure);
-	jsonBat.add(currmet.battery);
-
-	char JSONmessageBuffer[1024];
-	wifiK::smartDelay(100);
-	bool check = false;
-
-	// Serializza i dati correnti per MQTT
-	serializeJson(doc, JSONmessageBuffer);
-	wifiK::smartDelay(100);
-
-	// Invia i dati correnti tramite MQTT
-	for (uint8_t i = 0; i < 3; i++)
-	{
-		check = wifiK::transmitMQTT(extSensTopic, JSONmessageBuffer);
-		if (check)
-			break;
-		// wifiK::smartDelay(100);
-	}
-
-	wifiK::smartDelay(100);
-	// meteoclient.disconnect();
-
-	// Se ci sono record memorizzati (nrRecords > 0), aggiungili al documento per HTTP
-	if (nrRecords > 0)
-	{
-		for (int i = nrRecords - 1; i >= 0; i--)
-		{
-			readStructEEPROM(32 * i); // Leggi i dati dall'EEPROM
-			delay(10);
-			jsonHum.add(met.humidityBMP);
-			jsonTemp.add(met.temperatureBMP);
-			jsonPress.add(met.externalPressure);
-			jsonBat.add(met.battery);
-			delay(100);
-		}
-	}
-
-	// Serializza il documento completo per HTTP (composto dai dati correnti e dai record)
-	serializeJson(doc, JSONmessageBuffer);
-	wifiK::smartDelay(100);
-
-	// Invia i dati al server HTTP
-	HTTPClient http;
-	delay(10);
-	http.begin(espClient, post_serverJSON);
-	delay(100);
-	int httpResponseCode = http.PUT(JSONmessageBuffer); // Usa i dati serializzati per HTTP
-	delay(100);
-	http.end(); // Libera le risorse
-	delay(100);
-
-	// Verifica il risultato della richiesta HTTP
-	if (httpResponseCode == 200)
-	{
-		return true;
-	}
-
-	return false;
-}
 void setup()
 {
 	delay(1000);
@@ -151,20 +68,32 @@ void setup()
 	Wire.begin(default_sda_pin, default_scl_pin);
 	delay(10);
 
-	circBuf::readLastPageAddressAndRecordCount();
-	delay(10);
-	printBufferLog();
-	delay(10);
-	faiSampleDummy();
+	SensorDataHandler sHandler;
 
-	delay(10);
+	meteoData mdata;
+	uint8_t check = 0;
+	// Leggi i dati dal sensore BME280
+	check = sHandler.getRecord(&mdata);
+
+	if (check > 0)
+		return;
+
+	EepromDataHandler eHandler;
+
+	uint16_t storedrecords = eHandler.storedRecords();
+
+	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
+	DEBUG_PRINT(helpMet::str);
+
+	if (storedrecords > 0)
+		eHandler.appendRecordToEeprom(mdata);
 
 	risp = wifiK::connectWifi();
 	if (!risp)
 	{ // SE NON HO CONNESSIONE MEMORIZZO I DATI SULLA MEMORIA I2C
 
-		sprintf(str, "La connessione WIFI è fallita.");
-		DEBUG_PRINT(str);
+		sprintf(helpMet::str, "La connessione WIFI è fallita.");
+		DEBUG_PRINT(helpMet::str);
 		return;
 	}
 
@@ -173,20 +102,39 @@ void setup()
 	if (!risp)
 	{
 
-		sprintf(str, "La connessione MQTT è fallita.");
-		DEBUG_PRINT(str);
+		sprintf(helpMet::str, "La connessione MQTT è fallita.");
+		DEBUG_PRINT(helpMet::str);
 		return;
 	}
+	wifiK::smartDelay(100);
+	if (storedrecords == 0)
+	{
 
-	circBuf::readAndSendStoredRecordFromEeprom();
+
+		// Creare un buffer per JSON
+		// StaticJsonDocument<256> doc;
+		// doc["temperature"] = mdata.temperatureBMP;
+		// doc["humidity"] = mdata.humidityBMP;
+		// char msg[256];
+		uint8_t buff[256];
+		size_t sizemsg = helpMet::serialize(mdata,buff);
+		//serializeJson(doc, msg, sizeof(msg));
+
+		// Trasmettere il messaggio JSON
+		check = wifiK::transmitMQTT(meteoDataTopic, buff, sizemsg);
+		wifiK::smartDelay(100);
+		if (check == 0)
+			Serial.println("msg ok!");
+	}
 }
 
 void loop()
 {
 #ifdef DEBUGMIO
-	sprintf(str, "Spengo");
-	Serial.println(str);
-	wifiK::transmitMQTT(logTopic, str);
+
+	sprintf(helpMet::str, "Spengo");
+	Serial.println(helpMet::str);
+	wifiK::transmitMQTT(logTopic, helpMet::str);
 	wifiK::smartDelay(100);
 #endif
 	wifiK::smartDelay(100);
@@ -195,29 +143,11 @@ void loop()
 	shutDownNow();
 }
 
-void shutDownNow()
-{
+/*
+recupera quanti record sono memorizzati
+recupera dati meteo
+metti il numero dei record
+fai checksum
+serializza
 
-	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(100);
-	Wire.beginTransmission(2);
-	Wire.write(20);
-	Wire.endTransmission(true);
-}
-uint8_t requestSensorsValues()
-{
-	// bool sStop=true;
-	Wire.requestFrom(SLAVE_ATTINY_ADDRESS, 2); // request 2 bytes from slave device #2---- Wire.requestFrom (SLAVE_ADDRESS, responseSize);
-	uint8_t i = 0;
-	while (Wire.available())
-	{
-		dati[i] = Wire.read(); // receive a byte as character
-		i++;
-	}
-	voltage = (dati[1] << 8) | dati[0];
-	currmet.battery = voltage;
-	delay(100);
-	uint8_t res = bm(currmet); // read BMP080 values
-	res = bm(currmet);		   // read BMP080 values
-	return res;
-}
+*/

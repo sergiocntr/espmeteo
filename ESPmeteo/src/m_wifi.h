@@ -6,12 +6,36 @@
 #include <PubSubClient.h>
 #include <ESP8266Ping.h>
 #include "debugutils.h"
+#include "topic.h"
+#include "password.h"
+#include "myIP.h"
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 const char *remote_host = "www.google.com";
 namespace wifiK
 {
-	void callback(char *topic, byte *payload, unsigned int length) {}
+	
+	bool ackReceived = false;  // Variabile per tracciare se abbiamo ricevuto l'ACK
+
+	void callback(char *topic, byte *payload, unsigned int length)
+	{
+		if (strcmp(topic, ackMeteoTopic) == 0)
+		{
+			// Controlla che l'ACK sia corretto
+			String ackMessage = "";
+			for (unsigned int i = 0; i < length; i++)
+			{
+				ackMessage += (char)payload[i];
+			}
+			Serial.println("ACK ricevuto: " + ackMessage);
+
+			// Reset dei dati (se l'ACK è corretto)
+			if (ackMessage == "ack")
+			{
+				ackReceived = true;
+			}
+		}
+	}
 	void smartDelay(unsigned long ms)
 	{
 		unsigned long start = millis();
@@ -41,6 +65,7 @@ namespace wifiK
 			delay(200);
 		}
 		delay(100);
+		mqttClient.subscribe(ackMeteoTopic);
 		return true;
 	}
 	bool setWifiOff()
@@ -51,7 +76,6 @@ namespace wifiK
 		delay(200);
 		WiFi.forceSleepBegin();
 		return WiFi.mode(WIFI_OFF);
-		
 	}
 	bool connectWifi()
 	{
@@ -89,10 +113,10 @@ namespace wifiK
 	}
 
 	bool transmitMQTT(const char *_topic, const uint8_t *_message, size_t length)
-{
-    smartDelay(100);
-    return mqttClient.publish(_topic, _message, length);
-}
+	{
+		smartDelay(100);
+		return mqttClient.publish(_topic, _message, length);
+	}
 
 	bool transmitHTTP(char *meteoPayload)
 	{

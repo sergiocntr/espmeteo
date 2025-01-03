@@ -88,6 +88,12 @@ namespace wifiK
 		return mqttClient.publish(_topic, _message);
 	}
 
+	bool transmitMQTT(const char *_topic, uint8_t *_message , uint16_t lenght)
+	{
+		smartDelay(100);
+		return mqttClient.publish(_topic, _message ,lenght);
+	}
+
 	bool transmitHTTP(char *meteoPayload)
 	{
 		HTTPClient http;
