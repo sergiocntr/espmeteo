@@ -14,8 +14,19 @@ PubSubClient mqttClient(espClient);
 const char *remote_host = "www.google.com";
 namespace wifiK
 {
+	void smartDelay(unsigned long ms)
+	{
+		unsigned long start = millis();
+		do
+		{
+
+			mqttClient.loop();
+			delay(10);
+		} while (millis() - start < ms);
+	}
 	
-	bool ackReceived = false;  // Variabile per tracciare se abbiamo ricevuto l'ACK
+	uint8_t ackReceived = 0; // Variabile per tracciare se abbiamo ricevuto l'ACK
+	// 0 = errore, 1 = ack , 2 = end
 
 	void callback(char *topic, byte *payload, unsigned int length)
 	{
@@ -29,23 +40,34 @@ namespace wifiK
 			}
 			Serial.println("ACK ricevuto: " + ackMessage);
 
-			// Reset dei dati (se l'ACK è corretto)
-			if (ackMessage == "ack")
+			if (strcmp(ackMessage.c_str(), "ack") == 0)
 			{
-				ackReceived = true;
+				ackReceived = 1;
+			}
+			else if (strcmp(ackMessage.c_str(), "end") == 0)
+			{
+				ackReceived = 2;
+			}
+			else
+			{
+				ackReceived = 0;
 			}
 		}
 	}
-	void smartDelay(unsigned long ms)
-	{
-		unsigned long start = millis();
-		do
-		{
-
-			mqttClient.loop();
-			delay(10);
-		} while (millis() - start < ms);
-	}
+	uint8_t waitForAck()
+    {
+        unsigned long startMillis = millis();
+        while (millis() - startMillis < 5000)
+        {
+            smartDelay(100);
+            if (ackReceived != 0)
+            {
+                return ackReceived;
+            }
+        }
+        return 0;
+    }
+	
 	bool connectMQTT()
 	{
 		mqttClient.setServer(mqtt_server, mqtt_port);
@@ -99,10 +121,10 @@ namespace wifiK
 			delay(500);
 		}
 		delay(500);
-		if (!Ping.ping(remote_host))
-		{
-			return false;
-		}
+		// if (!Ping.ping(remote_host))
+		// {
+		// 	return false;
+		// }
 		return true;
 	}
 

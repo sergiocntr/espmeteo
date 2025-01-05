@@ -35,8 +35,7 @@ private:
 
     if (Wire.requestFrom(SLAVE_ATTINY_ADDRESS, length) != length)
     {
-      sprintf(helpMet::str, "Errore: numero di byte richiesti non corrisponde");
-      DEBUG_PRINT(helpMet::str);
+      ERROR_PRINT(WIREError_className, WIREError, WIREError::BYTE_NUM_ERROR);
       return 3;
     }
 
@@ -47,8 +46,7 @@ private:
 
     if (bytesRead != length)
     {
-      sprintf(helpMet::str, "Errore: dati incompleti ricevuti.");
-      DEBUG_PRINT(helpMet::str);
+      ERROR_PRINT(WIREError_className, WIREError, WIREError::DATA_ERROR);
       return 4;
     }
 
@@ -72,8 +70,7 @@ private:
     {
       if (millis() - startTime > 3000)
       {
-        sprintf(helpMet::str, "Errore: il sensore BME280 non risponde!");
-        DEBUG_PRINT(helpMet::str);
+        ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_CONNECTION_FAILED);
         return 1; // Errore di inizializzazione
       }
       delay(400);
@@ -85,8 +82,7 @@ private:
     delay(200);
     if (isnan(temp) || isnan(hum) || isnan(pres))
     {
-      sprintf(helpMet::str, "Errore: dati non validi letti dal sensore BME280!");
-      DEBUG_PRINT(helpMet::str);
+      ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_DATA_ERROR);
       return 2; // Errore nei dati
     }
 
@@ -102,6 +98,7 @@ private:
     Serial.print("Pressione: ");
     Serial.println(currmet.externalPressure);
 #endif
+    
     return 0; // Successo
   }
 
@@ -150,6 +147,30 @@ public:
     }
 
     DEBUG_PRINT("BME tutto ok!!");
+
+    *mdata = currmet; // Copia dei dati nella struttura fornita
+    return 0;         // Tutto OK
+  }
+  // Getter per il record
+  uint8_t getDummyRecord(meteoData *mdata)
+  {
+    // Simulazione dati sensore
+		currmet.temperatureBMP = random(20, 30) + random(0, 99) / 100.0;
+		currmet.humidityBMP = random(40, 60) + random(0, 99) / 100.0;
+		currmet.externalPressure = random(970, 1041); // Pressione atmosferica simulata
+		currmet.battery = random(3950, 4451);		  // Livello batteria simulato
+		currmet.checksum = 0;					  // checksum
+		currmet.counter = 0;						  // counter
+
+    uint8_t errCode = calculateChecksum();
+
+    if (errCode > 0)
+    {
+      DEBUG_PRINT("Errore nel calcolo del checksum dummy");
+      return errCode;
+    }
+
+    DEBUG_PRINT("BME dummy tutto ok!!");
 
     *mdata = currmet; // Copia dei dati nella struttura fornita
     return 0;         // Tutto OK

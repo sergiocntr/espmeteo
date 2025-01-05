@@ -10,6 +10,7 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP8266Ping.h>
+#include "m_errors.h"
 #include "impostazioni.h"
 #include "topic.h"
 #include "password.h"

@@ -30,12 +30,16 @@ namespace nEEPROM
         Wire.write((startAddr >> 8) & 0xFF); // MSB
         Wire.write(startAddr & 0xFF);        // LSB
         Wire.endTransmission();
-
+        Serial.printf("Leggo %u byte dalla EEPROM dall' indirizzo %u\n", length, startAddr);
         Wire.requestFrom(EEPROM_I2C_ADDRESS, length);
-        for (uint8_t i = 0; i < length && Wire.available(); i++)
+        for (uint8_t i = 0; i < length ; i++)
         {
             buffer[i] = Wire.read();
         }
+        // for (uint8_t i = 0; i < length && Wire.available(); i++)
+        // {
+        //     buffer[i] = Wire.read();
+        // }
 
         return true;
     }
@@ -61,7 +65,7 @@ namespace nEEPROM
         return success;
     }
 
-    bool writeEEPROMDataAndVerify(uint16_t address, const uint8_t *buffer, uint8_t length)
+    uint8_t writeEEPROMDataAndVerify(uint16_t address, const uint8_t *buffer, uint8_t length)
     {
 
         // Scrivi i dati nella EEPROM

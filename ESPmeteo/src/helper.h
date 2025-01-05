@@ -47,4 +47,15 @@ namespace helpMet
 #endif
     }
 
+    void printHexBuffer(const uint8_t* buffer, size_t length) {
+        for (size_t i = 0; i < length; i++) {
+          if (buffer[i] < 0x10) {
+            Serial.print("0"); // Aggiunge uno zero per valori sotto 0x10
+          }
+          Serial.print(buffer[i], HEX); // Stampa il valore in esadecimale
+          Serial.print(" "); // Separa i valori con uno spazio
+        }
+        Serial.println(); // Va a capo alla fine del buffer
+      }
+
 }

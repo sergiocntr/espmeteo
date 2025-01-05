@@ -1,6 +1,6 @@
 // ESPmeteo.cpp
 #include "ESPmeteo.h"
-//#include <ArduinoJson.h>
+// #include <ArduinoJson.h>
 void shutDownNow()
 {
 
@@ -10,7 +10,7 @@ void shutDownNow()
 	Wire.write(20);
 	Wire.endTransmission(true);
 }
-void blinkLed(uint8_t volte, bool l)
+void blinkLed(uint8_t volte, bool l = false)
 {
 	uint16_t tempo;
 
@@ -30,31 +30,6 @@ void blinkLed(uint8_t volte, bool l)
 		delay(tempo);
 	}
 }
-void faiSampleDummy(eeCircRecord &eBuffer)
-{
-	uint8_t i = 1;
-
-	while (eBuffer.recordCount < 17)
-	{
-
-		// Simulazione dati sensore
-		// currmet.temperatureBMP = random(20, 30) + random(0, 99) / 100.0;
-		// currmet.humidityBMP = random(40, 60) + random(0, 99) / 100.0;
-		// currmet.externalPressure = random(970, 1041); // Pressione atmosferica simulata
-		// currmet.battery = random(3950, 4451);		  // Livello batteria simulato
-		// currmet.checksum = 0xAB;					  // checksum
-		// currmet.counter = 0;						  // counter
-		delay(1500);
-
-		// helpMet::calculateChecksum(currmet);
-		// helpMet::serializeMeteoData(mData, buffer);
-		// circBuf::appendRecordToEeprom(buffer);
-		// circBuf::readLastPageAddressAndRecordCount(eBuffer);
-		// helpMet::printBufferLog(eBuffer);
-		i++;
-	}
-}
-
 void setup()
 {
 	delay(1000);
@@ -66,21 +41,45 @@ void setup()
 #endif
 	bool risp = wifiK::setWifiOff(); // APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
 	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(10);
-
 	SensorDataHandler sHandler;
-
+	EepromDataHandler eHandler;
 	meteoData mdata;
 	uint8_t check = 0;
-	// Leggi i dati dal sensore BME280
-	check = sHandler.getRecord(&mdata);
-
-	if (check > 0)
-		return;
-
-	EepromDataHandler eHandler;
-
 	uint16_t storedrecords = eHandler.storedRecords();
+
+// #define DUMMY_RECORD
+#if defined DUMMY_RECORD
+	// Leggi i dati dal sensore BME280
+	if (storedrecords < 30)
+	{
+		for (size_t i = 0; i < 15; i++)
+		{
+
+			check = sHandler.getDummyRecord(&mdata);
+
+			if (check > 0)
+				return;
+			eHandler.appendRecordToEeprom(mdata);
+			delay(250);
+		}
+	}
+	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
+	DEBUG_PRINT(helpMet::str);
+	// sprintf(helpMet::str, "Spedisco multipli record.");
+	// DEBUG_PRINT(helpMet::str);
+	// eHandler.readAndSendStoredRecordFromEeprom();
+	// return;
+
+#else
+
+	check = sHandler.getRecord(&mdata);
+	if (check > 0)
+	{
+		blinkLed(2, true);
+		return;
+	}
+
+	storedrecords = eHandler.storedRecords();
 
 	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
 	DEBUG_PRINT(helpMet::str);
@@ -88,43 +87,77 @@ void setup()
 	if (storedrecords > 0)
 		eHandler.appendRecordToEeprom(mdata);
 
+	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
+	DEBUG_PRINT(helpMet::str);
+#endif
+
 	risp = wifiK::connectWifi();
 	if (!risp)
 	{ // SE NON HO CONNESSIONE MEMORIZZO I DATI SULLA MEMORIA I2C
-
-		sprintf(helpMet::str, "La connessione WIFI è fallita.");
+		ERROR_PRINT(WIFIError_className, WIFIError, WIFIError::CONNECTION_FAILED);
+		sprintf(helpMet::str, "La connessione WIFI è fallita, memorizzo dati su EEPROM.");
 		DEBUG_PRINT(helpMet::str);
+		eHandler.appendRecordToEeprom(mdata);
 		return;
 	}
-
+	ERROR_PRINT(WIFIError_className, WIFIError, WIFIError::SUCCESS);
 	risp = wifiK::connectMQTT();
 
 	if (!risp)
 	{
-
+		ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::CONNECTION_FAILED);
 		sprintf(helpMet::str, "La connessione MQTT è fallita.");
 		DEBUG_PRINT(helpMet::str);
 		return;
 	}
+	ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::SUCCESS);
 	wifiK::smartDelay(100);
-	if (storedrecords == 0)
+	if (storedrecords == 0) // Se non ci sono messaggi memorizzati ,spedisco questo messaggio
 	{
 
-
-		// Creare un buffer per JSON
-		// StaticJsonDocument<256> doc;
-		// doc["temperature"] = mdata.temperatureBMP;
-		// doc["humidity"] = mdata.humidityBMP;
-		// char msg[256];
-		uint8_t buff[256];
-		size_t sizemsg = helpMet::serialize(mdata,buff);
-		//serializeJson(doc, msg, sizeof(msg));
-
-		// Trasmettere il messaggio JSON
-		check = wifiK::transmitMQTT(meteoDataTopic, buff, sizemsg);
+		sprintf(helpMet::str, "Spedisco singolo record.");
+		DEBUG_PRINT(helpMet::str);
+		uint8_t buff[64];
+		size_t sizemsg = helpMet::serialize(mdata, buff);
+		bool sent =  wifiK::transmitMQTT(meteoDataTopic, buff, sizemsg);
 		wifiK::smartDelay(100);
-		if (check == 0)
-			Serial.println("msg ok!");
+            if (sent)
+            {
+                uint8_t ackStatus = wifiK::waitForAck(); // Chiama una sola volta
+
+                sprintf(helpMet::str, "ackStatus :  %u .", ackStatus);
+                DEBUG_PRINT(helpMet::str);
+
+                if (ackStatus == 1) // ack
+                {
+                    Serial.println("Errore :ritornato ack per multi massaggio!");
+                    ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::ACK_FAILED);
+                    
+                }
+                else if (ackStatus == 2) // end
+                {
+
+                    ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::END_OK);
+                   
+                }
+                else
+                {
+                    ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::ACK_FAILED);
+                    return;
+                }
+            }
+            else
+            {
+                ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::PUBLISH_FAILED);
+                
+                return;
+            }
+	}
+	else // se ci sono messaggi memorizzati ,mi conviene memorizzare anche questo e spedire tutto il blocco
+	{
+		sprintf(helpMet::str, "Spedisco multipli record.");
+		DEBUG_PRINT(helpMet::str);
+		eHandler.readAndSendStoredRecordFromEeprom();
 	}
 }
 
