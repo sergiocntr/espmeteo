@@ -1,6 +1,7 @@
 //ESPmeteo.h
 #include <Arduino.h>
 #include "debugutils.h"
+#include "m_errors.h"
 #include "helper.h"
 #include <ESP8266WiFi.h>
 //#include <ESP8266HTTPClient.h>
@@ -10,11 +11,8 @@
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <ESP8266Ping.h>
-#include "m_errors.h"
+#include "debugutils.h"
 #include "impostazioni.h"
-#include "topic.h"
-#include "password.h"
-#include "myIP.h"
 #include "m_wifi.h"
 #include "eeprommio.h"
 #include "c_circBuff.h"

@@ -18,7 +18,7 @@ const char* EEPROMError_messages[] = {
     "Errore: Memoria EEPROM DATI piena!",
     "Errore di trasmissione I²C."
 };
-const char* EEPROMError_className = "EEPROMError";  // Nome della classe
+const char* EEPROMError_className = "EEPROM";  // Nome della classe
 #endif
 
 #endif // EEPROMERROR_H

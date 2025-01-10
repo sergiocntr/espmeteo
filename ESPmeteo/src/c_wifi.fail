@@ -1,0 +1,151 @@
+#include "c_wifi.h"
+
+// Definizione delle variabili statiche
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+MQTTState MQTTStatus::state = MQTTState::DISCONNECTED;
+String MQTTStatus::lastError = "";
+
+// Metodi della classe wifiK
+void wifiK::smartDelay(unsigned long ms) {
+    unsigned long start = millis();
+    do {
+        mqttClient.loop();
+        delay(10);
+    } while (millis() - start < ms);
+}
+
+bool wifiK::isMQTTConnected() {
+    return mqttClient.connected();
+}
+
+void wifiK::callback(char* topic, byte* payload, unsigned int length) {
+    if (strcmp(topic, ackMeteoTopic) == 0)
+{
+    char ackMessage[length + 1];  // Buffer temporaneo per il messaggio ACK
+    strncpy(ackMessage, (char *)payload, length);
+    ackMessage[length] = '\0';  // Assicurati che sia null-terminated
+
+    Serial.println("ACK ricevuto: " + String(ackMessage)); // Usa String solo per il log
+
+    if (strcmp(ackMessage, "ack") == 0)
+    {
+        ackReceived = 1;
+    }
+    else if (strcmp(ackMessage, "end") == 0)
+    {
+        ackReceived = 2;
+    }
+    else if (strcmp(ackMessage, "failed") == 0)
+    {
+        ackReceived = 3;
+    }
+    else if (strcmp(ackMessage, "error") == 0)
+    {
+        ackReceived = 0;
+    }
+}
+}
+
+bool wifiK::connectWifi() {
+    WiFi.mode(WIFI_STA);
+    WiFi.forceSleepWake();
+    delay(10);
+    WiFi.config(marinerUan, gateway, subnet, dns1);
+    WiFi.begin(ssid, password);
+
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED) {
+        if (millis() - start > 8000) {
+            MQTTStatus::setState(MQTTState::DISCONNECTED);
+            return false;
+        }
+        delay(500);
+    }
+    return true;
+}
+
+bool wifiK::connectMQTT() {
+    mqttClient.setServer(mqtt_server, mqtt_port);
+    mqttClient.setCallback(callback);
+
+    String clientId = String(marinerId) + String(random(0xffff), HEX);
+    mqttClient.connect(clientId.c_str(), mqttUser, mqttPass);
+
+    unsigned long start = millis();
+    while (!mqttClient.connected()) {
+        if (millis() - start > 5000) {
+            MQTTStatus::setState(MQTTState::DISCONNECTED);
+            return false;
+        }
+        delay(200);
+    }
+
+    mqttClient.subscribe(ackMeteoTopic);
+    MQTTStatus::setState(MQTTState::CONNECTED);
+    return true;
+}
+
+void wifiK::ensureMQTTConnected() {
+    if (!isMQTTConnected()) {
+        Serial.println("MQTT disconnesso, tentativo di riconnessione...");
+        if (connectMQTT()) {
+            Serial.println("MQTT riconnesso con successo.");
+        } else {
+            Serial.println("Tentativo di riconnessione MQTT fallito.");
+        }
+    }
+}
+
+bool wifiK::transmitMQTT(const char* _topic, char* _message) {
+    if (!isMQTTConnected()) {
+        Serial.println("Errore: MQTT non connesso, trasmissione bloccata.");
+        MQTTStatus::setState(MQTTState::DISCONNECTED);
+        return false;
+    }
+    smartDelay(100);
+    return mqttClient.publish(_topic, _message);
+}
+
+bool wifiK::transmitMQTT(const char* _topic, const uint8_t* _message, size_t length) {
+    if (!isMQTTConnected()) {
+        Serial.println("Errore: MQTT non connesso, trasmissione bloccata.");
+        MQTTStatus::setState(MQTTState::DISCONNECTED);
+        return false;
+    }
+    smartDelay(100);
+    return mqttClient.publish(_topic, _message, length);
+}
+bool wifiK::transmitHTTP(char* meteoPayload) {
+    HTTPClient http;
+    smartDelay(10);
+    http.begin(espClient, post_serverJSON);
+
+    int httpResponseCode = http.PUT(meteoPayload);
+    smartDelay(100);
+
+    if (httpResponseCode == 200) {
+        return true;
+    }
+
+    MQTTStatus::setState(MQTTState::ERROR);
+    MQTTStatus::lastError = "HTTP transmission failed";
+    return false;
+}
+
+uint8_t wifiK::waitForAck() {
+    unsigned long startMillis = millis();
+    while (millis() - startMillis < 5000) {
+        smartDelay(100);
+        if (MQTTStatus::state != MQTTState::DISCONNECTED) {
+            return 1; // ACK ricevuto
+        }
+    }
+    return 0;
+}
+
+bool wifiK::setWifiOff() {
+    WiFi.disconnect(true);
+    WiFi.forceSleepBegin();
+    return WiFi.mode(WIFI_OFF);
+}

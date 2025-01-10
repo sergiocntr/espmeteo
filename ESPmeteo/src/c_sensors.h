@@ -7,9 +7,7 @@ private:
   BME280I2C bme;
 
   meteoData currmet;
-  uint8_t buffer[sizeof(meteoData)];
-  uint16_t eBufferAddress;
-  // Funzione per calcolare il checksum
+
   uint8_t calculateChecksum()
   {
     uint8_t checksum = 0;
@@ -90,14 +88,14 @@ private:
     currmet.temperatureBMP = temp;
     currmet.externalPressure = pres;
 
-#if defined DEBUGMIO
-    Serial.print("Temperatura: ");
-    Serial.println(currmet.temperatureBMP);
-    Serial.print("Umidità: ");
-    Serial.println(currmet.humidityBMP);
-    Serial.print("Pressione: ");
-    Serial.println(currmet.externalPressure);
-#endif
+// #if defined DEBUGMIO
+//     Serial.print("Temperatura: ");
+//     Serial.println(currmet.temperatureBMP);
+//     Serial.print("Umidità: ");
+//     Serial.println(currmet.humidityBMP);
+//     Serial.print("Pressione: ");
+//     Serial.println(currmet.externalPressure);
+// #endif
     
     return 0; // Successo
   }
@@ -117,6 +115,17 @@ public:
     // Altre inizializzazioni
     // eBufferAddress = circBuf::readLastPageAddressAndRecordCount(eBuffer);
     // eBuffer.recordCount = 0;
+  }
+
+  void initialize(){
+    currmet.battery = 0;
+    currmet.checksum = 0;
+    currmet.counter = 0;
+    currmet.externalPressure = 0.0;
+    currmet.humidityBMP = 0.00;
+    currmet.temperatureBMP = 0.00;
+
+
   }
 
   // Getter per il record

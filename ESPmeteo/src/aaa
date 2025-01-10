@@ -1,0 +1,4 @@
+no ma aspetta ,probabilmente sto sbagliando io. 
+C'e' il file .h ed il file .cpp della classe. 
+Il file .cpp include il file .h. 
+Negli altri file (dove voglio usare la classe statica)  ,devo includere il file .h o il file .cpp?

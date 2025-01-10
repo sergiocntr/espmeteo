@@ -1,6 +1,7 @@
 // eeprommio.h
 #pragma once
 #include "impostazioni.h"
+#include "EEPROMError.h"
 namespace nEEPROM
 {
 
@@ -28,19 +29,14 @@ namespace nEEPROM
     {
         Wire.beginTransmission(EEPROM_I2C_ADDRESS);
         Wire.write((startAddr >> 8) & 0xFF); // MSB
-        Wire.write(startAddr & 0xFF);        // LSB
-        Wire.endTransmission();
-        Serial.printf("Leggo %u byte dalla EEPROM dall' indirizzo %u\n", length, startAddr);
-        Wire.requestFrom(EEPROM_I2C_ADDRESS, length);
-        for (uint8_t i = 0; i < length ; i++)
-        {
+        Wire.write(startAddr & 0xFF);       // LSB
+        if (Wire.endTransmission() != 0) {
+            return false; // Errore nella trasmissione
+        }
+        Wire.requestFrom(static_cast<uint8_t>(EEPROM_I2C_ADDRESS), static_cast<uint8_t>(length));
+        for (uint8_t i = 0; i < length && Wire.available(); i++) {
             buffer[i] = Wire.read();
         }
-        // for (uint8_t i = 0; i < length && Wire.available(); i++)
-        // {
-        //     buffer[i] = Wire.read();
-        // }
-
         return true;
     }
 
@@ -65,7 +61,7 @@ namespace nEEPROM
         return success;
     }
 
-    uint8_t writeEEPROMDataAndVerify(uint16_t address, const uint8_t *buffer, uint8_t length)
+    bool writeEEPROMDataAndVerify(uint16_t address, const uint8_t *buffer, uint8_t length)
     {
 
         // Scrivi i dati nella EEPROM
@@ -82,11 +78,11 @@ namespace nEEPROM
         {
             if (buffer[i] != readBuffer[i])
             {
-                Serial.println("Errore nella scrittura della EEPROM: dati non corrispondono.");
+                ERROR_PRINT(EEPROMError_className, EEPROMError, EEPROMError::FATAL_ERROR);
                 return false;
             }
         }
-
+        
         return true;
     }
 }
