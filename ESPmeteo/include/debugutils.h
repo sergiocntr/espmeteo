@@ -15,7 +15,7 @@
 #define ERROR_PRINT(className, errorEnum, errorCode)                      \
     do {                                                                   \
         Serial.print(__LINE__);                                            \
-        Serial.print(" Errore in ");                                        \
+        Serial.print(" Log di ");                                        \
         Serial.print(className);                                           \
         Serial.print(" - ");                                                \
         Serial.print(static_cast<int>(errorCode));                         \

@@ -7,9 +7,9 @@
 //#include <ESP8266HTTPClient.h>
 #include <Wire.h>
 #include <SPI.h>
-#include "I2C_Anything.h"
+//#include "I2C_Anything.h"
 #include <PubSubClient.h>
-#include <ArduinoJson.h>
+//#include <ArduinoJson.h>
 #include <ESP8266Ping.h>
 #include "debugutils.h"
 #include "impostazioni.h"

@@ -2,7 +2,7 @@
 #pragma once
 void writeEEPROM(uint16_t eeaddress, uint8_t data)
 {
-    Wire.beginTransmission(SLAVE_ADDRESS);
+    Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write((int)(eeaddress >> 8));   // MSB
     Wire.write((int)(eeaddress & 0xFF)); // LSB
     Wire.write(data);
@@ -12,11 +12,11 @@ void writeEEPROM(uint16_t eeaddress, uint8_t data)
 uint8_t readEEPROM(uint16_t eeaddress)
 {
     uint8_t rdata = 0xFF;
-    Wire.beginTransmission(SLAVE_ADDRESS);
+    Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write((int)(eeaddress >> 8));   // MSB
     Wire.write((int)(eeaddress & 0xFF)); // LSB
     Wire.endTransmission();
-    Wire.requestFrom(SLAVE_ADDRESS, 1);
+    Wire.requestFrom(EEPROM_I2C_ADDRESS, 1);
     if (Wire.available())
         rdata = Wire.read();
     return rdata;
@@ -32,7 +32,7 @@ void resetCircBuffer()
     // Scrittura dei valori nell'EEPROM
     for (uint16_t i = 0; i < 64; i += 16)
     { // Scrittura a blocchi di 16 byte (esempio)
-        Wire.beginTransmission(SLAVE_ADDRESS);
+        Wire.beginTransmission(EEPROM_I2C_ADDRESS);
 
         // Imposta l'indirizzo corrente
         Wire.write((uint8_t)((nValuesAddr + i) >> 8));   // Byte alto dell'indirizzo
@@ -56,12 +56,12 @@ void resetCircBuffer()
     }
 
     // Lettura e verifica dei valori scritti
-    Wire.beginTransmission(SLAVE_ADDRESS);
+    Wire.beginTransmission(EEPROM_I2C_ADDRESS);
     Wire.write((uint8_t)(nValuesAddr >> 8));   // Byte alto dell'indirizzo
     Wire.write((uint8_t)(nValuesAddr & 0xFF)); // Byte basso dell'indirizzo
     Wire.endTransmission();
 
-    Wire.requestFrom(SLAVE_ADDRESS, 64); // Richiede 64 byte
+    Wire.requestFrom(EEPROM_I2C_ADDRESS, 64); // Richiede 64 byte
 
     DEBUG_PRINT("Lettura valori:");
     for (uint16_t i = 0; i < 64; i++)
@@ -87,7 +87,7 @@ void resetCircBuffer()
 void resetMemory()
 {
     const uint16_t nValuesAddr = 0x0000; // Indirizzo memoria di partenza
-    const uint8_t defaultValue = 0xCC;   // Valore predefinito per il reset
+    const uint8_t defaultValue = 0xDD;   // Valore predefinito per il reset
     const uint16_t byteToErase = 2048; // Indirizzo memoria di partenza
     const int transferSize = 32;    // Valore predefinito per il reset
 
@@ -96,7 +96,7 @@ void resetMemory()
     // Scrittura dei valori nell'EEPROM
     for (uint16_t i = 0; i < byteToErase; i += transferSize)
     { // Scrittura a blocchi di 16 byte (esempio)
-        Wire.beginTransmission(SLAVE_ADDRESS);
+        Wire.beginTransmission(EEPROM_I2C_ADDRESS);
 
         // Imposta l'indirizzo corrente
         Wire.write((uint8_t)((nValuesAddr + i) >> 8));   // Byte alto dell'indirizzo
@@ -121,12 +121,12 @@ void resetMemory()
     // Scrittura dei valori nell'EEPROM
     for (uint16_t i = 0; i < byteToErase; i += transferSize)
     { // Scrittura a blocchi di 16 byte (esempio)
-        Wire.beginTransmission(SLAVE_ADDRESS);
+        Wire.beginTransmission(EEPROM_I2C_ADDRESS);
         Wire.write((uint8_t)(nValuesAddr >> 8));   // Byte alto dell'indirizzo
         Wire.write((uint8_t)(nValuesAddr & 0xFF)); // Byte basso dell'indirizzo
         Wire.endTransmission();
 
-        Wire.requestFrom(SLAVE_ADDRESS, transferSize); // Richiede 64 byte
+        Wire.requestFrom(EEPROM_I2C_ADDRESS, transferSize); // Richiede transferSize byte
 
         
         DEBUG_PRINT("Lettura valori:");

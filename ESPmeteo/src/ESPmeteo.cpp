@@ -1,183 +1,133 @@
 // ESPmeteo.cpp
+/*
+Errore di lettura dalla sonda BME280.
+Impossibilità di connettersi a MQTT (timeout, server non disponibile, credenziali errate).
+Memoria EEPROM piena o errori di scrittura.
+Buffer circolare pieno o errore nel gestirne la capacità.
+Errore di trasmissione via MQTT (rete, server MQTT, formato dei dati).
+Errore nel riavvio e nel recupero dei dati dalla memoria EEPROM.
+Errore nel comando di spegnimento (risorse non rilasciate correttamente).
+*/
 #include "ESPmeteo.h"
-extern "C" {
-    #include "user_interface.h"
+extern "C"
+{
+#include "user_interface.h"
 }
 
-void printFreeRAM(const char* label) {
-    Serial.print(label);
-    Serial.print(" - Free heap: ");
-    Serial.println(ESP.getFreeHeap());
+void printFreeRAM(const char *label)
+{
+	Serial.print(label);
+	Serial.print(" - Free heap: ");
+	Serial.println(ESP.getFreeHeap());
 }
 void shutDownNow()
 {
 
 	Wire.begin(default_sda_pin, default_scl_pin);
-	delay(100);
 	Wire.beginTransmission(2);
 	Wire.write(20);
 	Wire.endTransmission(true);
+	delay(50);
 }
-void blinkLed(uint8_t volte, bool l = false)
-{
-	uint16_t tempo;
 
-	if (l)
-	{
-		tempo = 250;
-	}
-	else
-	{
-		tempo = 500;
-	}
-	for (uint8_t i = 0; i < volte; i++)
-	{
-		digitalWrite(LED_BUILTIN, LOW);
-		delay(tempo);
-		digitalWrite(LED_BUILTIN, HIGH);
-		delay(tempo);
-	}
-}
 #define DEBUGMIO
 void setup()
 {
-	delay(1000);
 
 #ifdef DEBUGMIO
+	delay(1000);
 	pinMode(LED_BUILTIN, OUTPUT);
 	digitalWrite(LED_BUILTIN, HIGH);
 	Serial.begin(9600);
 #endif
-	bool risp = wifiK::setWifiOff(); // APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
+	wifiK::setWifiOff(); // APPENA ACCESO SPENGO IL WIFI PER RISPARMIARE CORRENTE
 	Wire.begin(default_sda_pin, default_scl_pin);
+
+	ErrorState check = NO_ERROR;
+
 	SensorDataHandler sHandler;
 	EepromDataHandler eHandler;
-	sHandler.initialize();
-	eHandler.initialize();
+
+	sHandler.initialize(check);
+
+	if (static_cast<uint8_t>(check) > 0)
+	{
+		helpMet::handleProgramError(check);
+		return;
+	}
+
+	
 	meteoData mdata;
-	uint8_t check = 0;
-	uint16_t storedrecords = eHandler.storedRecords();
 
-#define DUMMY_RECORD
+//#define DUMMY_RECORD
 #if defined DUMMY_RECORD
-check = sHandler.getRecord(&mdata);
-if (check > 0) return;
-
-eHandler.appendRecordToEeprom(&mdata);
-
-	// sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
-	// DEBUG_PRINT(helpMet::str);
-	//  sprintf(helpMet::str, "Spedisco multipli record.");
-	//  DEBUG_PRINT(helpMet::str);
-	//  eHandler.readAndSendStoredRecordFromEeprom();
-	//  return;
+	uint8_t NRECORD = 5;
+	DEBUG_PRINT("Reset memory...")
+	nEEPROM::resetMemory();
+	eHandler.initialize(true);
+	DEBUG_PRINT("Inserimento Record...");
+	for (size_t i = 0; i < NRECORD; i++)
+	{
+		check = sHandler.getDummyRecord(&mdata);
+		eHandler.appendRecordToEeprom(&mdata);
+		delay(50);
+	}
 
 #else
 
+	eHandler.initialize(false);
 	check = sHandler.getRecord(&mdata);
-	if (check > 0)
+
+#endif
+
+	if (static_cast<uint8_t>(check) > 0)
 	{
-		blinkLed(2, true);
+		helpMet::handleProgramError(check);
 		return;
 	}
 
-	storedrecords = eHandler.storedRecords();
+	wifiK::connectWifi(check);
 
-	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
-	DEBUG_PRINT(helpMet::str);
-
-	if (storedrecords > 0)
-		eHandler.appendRecordToEeprom(mdata);
-
-	sprintf(helpMet::str, "Nr record :  %u .", storedrecords);
-	DEBUG_PRINT(helpMet::str);
-#endif
-	DEBUG_PRINT("Hi!");
-	risp = wifiK::connectWifi();
-	DEBUG_PRINT("Hi!");
-	if (!risp)
-	{ // SE NON HO CONNESSIONE MEMORIZZO I DATI SULLA MEMORIA I2C
-		ERROR_PRINT(WIFIError_className, WIFIError, WIFIError::CONNECTION_FAILED);
-		sprintf(helpMet::str, "La connessione WIFI è fallita, memorizzo dati su EEPROM.");
-		DEBUG_PRINT(helpMet::str);
+	if (static_cast<uint8_t>(check) > 0)
+	{
+		helpMet::handleProgramError(check);
 		eHandler.appendRecordToEeprom(&mdata);
 		return;
 	}
-	// ERROR_PRINT(WIFIError_className, WIFIError, WIFIError::SUCCESS);
 	delay(10);
-	DEBUG_PRINT("Hi!");
-	Serial.print("Free RAM before MQTT connect: ");
-	Serial.println(ESP.getFreeHeap());
 
-	risp = wifiK::connectMQTT();
-	printFreeRAM("Dopo connectMQTT");
-	if (!risp)
+	wifiK::connectMQTT(check);
+
+	if (static_cast<uint8_t>(check) > 0)
 	{
-		ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::CONNECTION_FAILED);
-		sprintf(helpMet::str, "La connessione MQTT è fallita.");
-		DEBUG_PRINT(helpMet::str);
-		Serial.print("Free RAM after failed MQTT connect: ");
-		Serial.println(ESP.getFreeHeap());
+		helpMet::handleProgramError(check);
+		eHandler.appendRecordToEeprom(&mdata);
 		return;
 	}
 
-	Serial.print("Free RAM after MQTT connect: ");
-	Serial.println(ESP.getFreeHeap());
-
-	if (!risp)
-	{
-		ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::CONNECTION_FAILED);
-		sprintf(helpMet::str, "La connessione MQTT è fallita.");
-		DEBUG_PRINT(helpMet::str);
-		return;
-	}
-	DEBUG_PRINT("Hi!");
-	// ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::SUCCESS);
 	wifiK::smartDelay(100);
+	uint16_t storedrecords = eHandler.storedRecords();
 	if (storedrecords == 0) // Se non ci sono messaggi memorizzati ,spedisco questo messaggio
 	{
-
 		sprintf(helpMet::str, "Spedisco singolo record.");
 		DEBUG_PRINT(helpMet::str);
-		uint8_t buff[64];
+		uint8_t buff[32];
 		size_t sizemsg = helpMet::serialize(mdata, buff);
-		bool sent = wifiK::transmitMQTT(meteoDataTopic, buff, sizemsg);
-		wifiK::smartDelay(100);
-		if (sent)
+		Eeprom_job ejob = NO_JOB;
+		bool result = wifiK::sendWithRetry(buff, sizemsg, ejob);
+		if (!result)
 		{
-			uint8_t ackStatus = wifiK::waitForAck(); // Chiama una sola volta
-
-			sprintf(helpMet::str, "ackStatus :  %u .", ackStatus);
+			eHandler.appendRecordToEeprom(&mdata);
+			sprintf(helpMet::str, "La trasmissione MQTT è fallita, memorizzo dati su EEPROM.");
 			DEBUG_PRINT(helpMet::str);
-
-			if (ackStatus == 1) // ack
-			{
-				Serial.println("Errore :ritornato ack per multi massaggio!");
-				ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::ACK_FAILED);
-			}
-			else if (ackStatus == 2) // end
-			{
-
-				ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::END_OK);
-			}
-			else
-			{
-				ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::ACK_FAILED);
-				return;
-			}
-		}
-		else
-		{
-			ERROR_PRINT(MQTTError_className, MQTTError, MQTTError::PUBLISH_FAILED);
-
-			return;
 		}
 	}
 	else // spedisco tutto il blocco
 	{
-		sprintf(helpMet::str, "Spedisco multipli record.");
+		sprintf(helpMet::str, "Spedisco multipli record: %u.", storedrecords);
 		DEBUG_PRINT(helpMet::str);
-		// eHandler.appendRecordToEeprom(&mdata);  // BUG 17: NON ABILITARE ,RECORD GIA SCRITTO
+		eHandler.appendRecordToEeprom(&mdata); // ?? BUG 17: NON ABILITARE ,RECORD GIA SCRITTO
+		wifiK::smartDelay(100);
 		eHandler.readAndSendStoredRecordFromEeprom();
 	}
 }
@@ -189,7 +139,7 @@ void loop()
 	sprintf(helpMet::str, "Spengo");
 	Serial.println(helpMet::str);
 	wifiK::transmitMQTT(logTopic, helpMet::str);
-	wifiK::smartDelay(100);
+
 #endif
 	wifiK::smartDelay(100);
 	wifiK::setWifiOff();

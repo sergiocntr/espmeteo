@@ -23,7 +23,29 @@ namespace helpMet
         return floor(val * factor) / factor;
     }
 
-    char str[100];
+    char str[256];
+
+    void blinkLed(uint8_t volte, bool l = false)
+    {
+        uint16_t tempo;
+
+        if (l)
+        {
+            tempo = 250;
+        }
+        else
+        {
+            tempo = 500;
+        }
+        for (uint8_t i = 0; i < volte; i++)
+        {
+            digitalWrite(LED_BUILTIN, LOW);
+            delay(tempo);
+            digitalWrite(LED_BUILTIN, HIGH);
+            delay(tempo);
+        }
+    }
+
     void printBufferLog(eeCircRecord eBuffer)
     {
 #ifdef DEBUGMIO
@@ -42,10 +64,10 @@ namespace helpMet
         sprintf(str, "Curmet - wipeFlag: 0x%02X, flag: 0x%02X, pageAddress: %u, recordCount: %u",
                 eBuffer.wipeFlag, eBuffer.flag, eBuffer.pageAddress, eBuffer.recordCount);
         Serial.println(str); // Stampa sulla seriale
-        DEBUG_PRINT("Hi!");
+
         delay(10);
         // wifiK::transmitMQTT(logTopic, str); // Pubblica su MQTT
-        // DEBUG_PRINT("Hi!");
+        //
 
 #endif
     }
@@ -97,6 +119,49 @@ namespace helpMet
             delay(1);
         }
         Serial.println(); // Va a capo alla fine del buffer
+#endif
+    }
+
+    void handleProgramError(ErrorState &error)
+    {
+#ifdef DEBUGMIO
+
+        switch (error)
+        {
+        case BME280_CONNECTION_FAILED:
+            DEBUG_PRINT("Errore nella connessione con la sonda BME280.");
+            break;
+        case BME280_DATA_ERROR:
+            DEBUG_PRINT("Errore nei dati letti dalla sonda BME280.");
+            break;
+        case ATTINY_BYTE_NUM_ERROR:
+            DEBUG_PRINT("Errore nel numero di byte ricevuti dall'Attiny.");
+            break;
+        case ATTINY_DATA_ERROR:
+            DEBUG_PRINT("Errore nei dati ricevuti dall'Attiny.");
+            break;
+        case EEPROM_ERROR:
+            DEBUG_PRINT("Errore nell'accesso o scrittura sull'EEPROM.");
+            break;
+        case WIFI_CONNECTION_ERROR:
+            DEBUG_PRINT("Errore nella connessione WIFI.");
+            break;
+        case MQTT_CONNECTION_ERROR:
+            DEBUG_PRINT("Errore nella connessione MQTT.");
+            break;
+        case NO_ERROR:
+            DEBUG_PRINT("Nessun errore, tutto OK.");
+            break;
+        default:
+            DEBUG_PRINT("Errore sconosciuto.");
+            break;
+        }
+#else
+
+        blinkLed(static_cast<uint8_t>(error), true);
+
+        // Aggiungi azioni di recovery, log o notifiche qui
+
 #endif
     }
 

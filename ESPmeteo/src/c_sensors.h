@@ -8,7 +8,7 @@ private:
 
   meteoData currmet;
 
-  uint8_t calculateChecksum()
+  void calculateChecksum()
   {
     uint8_t checksum = 0;
 
@@ -19,11 +19,11 @@ private:
     checksum += currmet.battery & 0xFF;
 
     currmet.checksum = checksum;
-    return 0;
+    
   }
 
   // Funzione per leggere la tensione dall'Attiny
-  uint8_t requestVoltageFromAttiny()
+  ErrorState requestVoltageFromAttiny()
   {
 
     uint8_t bytesRead = 0;
@@ -34,7 +34,7 @@ private:
     if (Wire.requestFrom(SLAVE_ATTINY_ADDRESS, length) != length)
     {
       ERROR_PRINT(WIREError_className, WIREError, WIREError::BYTE_NUM_ERROR);
-      return 3;
+      return ATTINY_BYTE_NUM_ERROR;
     }
 
     while (Wire.available() && bytesRead < length)
@@ -45,7 +45,7 @@ private:
     if (bytesRead != length)
     {
       ERROR_PRINT(WIREError_className, WIREError, WIREError::DATA_ERROR);
-      return 4;
+      return ATTINY_DATA_ERROR;
     }
 
     voltage = (dati[1] << 8) | dati[0];
@@ -55,24 +55,13 @@ private:
     sprintf(helpMet::str, "Tensione %u millivolt.", voltage);
     DEBUG_PRINT(helpMet::str);
 
-    return 0;
+    return NO_ERROR;
   }
 
   // Funzione per leggere i dati dal sensore BME280
-  uint8_t readFromBME280()
+  ErrorState readFromBME280()
   {
     float temp = NAN, hum = NAN, pres = NAN;
-
-    uint32_t startTime = millis();
-    while (!bme.begin())
-    {
-      if (millis() - startTime > 3000)
-      {
-        ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_CONNECTION_FAILED);
-        return 1; // Errore di inizializzazione
-      }
-      delay(400);
-    }
 
     bme.read(pres, temp, hum);
     delay(200);
@@ -80,8 +69,8 @@ private:
     delay(200);
     if (isnan(temp) || isnan(hum) || isnan(pres))
     {
-      ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_DATA_ERROR);
-      return 2; // Errore nei dati
+      //ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_DATA_ERROR);
+      return BME280_DATA_ERROR; // Errore nei dati
     }
 
     currmet.humidityBMP = hum;
@@ -97,7 +86,7 @@ private:
 //     Serial.println(currmet.externalPressure);
 // #endif
     
-    return 0; // Successo
+    return NO_ERROR; // Successo
   }
 
 public:
@@ -117,7 +106,18 @@ public:
     // eBuffer.recordCount = 0;
   }
 
-  void initialize(){
+  void  initialize(ErrorState &error){
+    uint32_t startTime = millis();
+    while (!bme.begin())
+    {
+      if (millis() - startTime > 3000)
+      {
+        //ERROR_PRINT(SENSORError_className, SENSORError, SENSORError::BME280_CONNECTION_FAILED);
+        error = BME280_CONNECTION_FAILED; // Errore di inizializzazione
+        return;
+      }
+      delay(400);
+    }
     currmet.battery = 0;
     currmet.checksum = 0;
     currmet.counter = 0;
@@ -125,19 +125,33 @@ public:
     currmet.humidityBMP = 0.00;
     currmet.temperatureBMP = 0.00;
 
+    error = NO_ERROR;
+
 
   }
 
   // Getter per il record
-  uint8_t getRecord(meteoData *mdata)
+  ErrorState getRecord(meteoData *mdata)
   {
-    uint8_t errCode = readFromBME280();
+    ErrorState errCode = NO_ERROR;
+    int retryCount = 3;  // Numero massimo di tentativi per la lettura del sensore
+    while (retryCount > 0)
+    {
+        errCode = readFromBME280();
+        if (errCode == NO_ERROR)
+        {
+            break;  // Lettura riuscita, esci dal ciclo
+        }
+        retryCount--;
+        delay(1000);  // Attendere prima di riprovare
+    }
 
     if (errCode > 0)
     {
-      DEBUG_PRINT("Errore nel leggere il BME280");
-      return errCode;
+        DEBUG_PRINT("Errore nel leggere il BME280");
+        return errCode;  // Restituisce l'errore di lettura della sonda
     }
+
 
     errCode = requestVoltageFromAttiny();
 
@@ -147,22 +161,24 @@ public:
       return errCode;
     }
 
-    errCode = calculateChecksum();
+    calculateChecksum();
 
-    if (errCode > 0)
-    {
-      DEBUG_PRINT("Errore nel calcolo del checksum");
-      return errCode;
-    }
+    // if (errCode > 0)
+    // {
+    //   DEBUG_PRINT("Errore nel calcolo del checksum");
+    //   return errCode;
+    // }
 
     DEBUG_PRINT("BME tutto ok!!");
 
     *mdata = currmet; // Copia dei dati nella struttura fornita
-    return 0;         // Tutto OK
+    return NO_ERROR;         // Tutto OK
   }
   // Getter per il record
-  uint8_t getDummyRecord(meteoData *mdata)
+  ErrorState getDummyRecord(meteoData *mdata)
   {
+    ErrorState errCode = NO_ERROR;
+    
     // Simulazione dati sensore
 		currmet.temperatureBMP = random(20, 30) + random(0, 99) / 100.0;
 		currmet.humidityBMP = random(40, 60) + random(0, 99) / 100.0;
@@ -171,17 +187,13 @@ public:
 		currmet.checksum = 0;					  // checksum
 		currmet.counter = 0;						  // counter
 
-    uint8_t errCode = calculateChecksum();
+    calculateChecksum();
 
-    if (errCode > 0)
-    {
-      DEBUG_PRINT("Errore nel calcolo del checksum dummy");
-      return errCode;
-    }
+    
 
     DEBUG_PRINT("BME dummy tutto ok!!");
 
     *mdata = currmet; // Copia dei dati nella struttura fornita
-    return 0;         // Tutto OK
+    return errCode;         // Tutto OK
   }
 };
