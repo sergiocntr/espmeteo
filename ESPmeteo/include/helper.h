@@ -59,15 +59,17 @@ namespace helpMet
     }
     void printCurmetLog(eeCircRecord eBuffer)
     {
-#ifdef DEBUGMIO
+
         // str[100];  // Assicurati che la dimensione sia abbastanza grande per contenere la stringa formattata
         sprintf(str, "Curmet - wipeFlag: 0x%02X, flag: 0x%02X, pageAddress: %u, recordCount: %u",
                 eBuffer.wipeFlag, eBuffer.flag, eBuffer.pageAddress, eBuffer.recordCount);
+
+        wifiK::transmitMQTT(logMeteoTopic, str); // Pubblica su MQTT
+#ifdef DEBUGMIO
         Serial.println(str); // Stampa sulla seriale
 
         delay(10);
-        // wifiK::transmitMQTT(logTopic, str); // Pubblica su MQTT
-        //
+
 
 #endif
     }

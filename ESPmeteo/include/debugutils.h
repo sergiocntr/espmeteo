@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 // Abilitazione debug
-#define DEBUGMIO
+//#define DEBUGMIO
 
 #if defined DEBUGMIO
 // Macro per debug generico

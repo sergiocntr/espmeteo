@@ -15,11 +15,12 @@ questo fie ha tre funzioni :
 #include "impostazioni.h"
 
 // Dati generali
+static const uint16_t EEPROM_START_ADDRESS = 0x0000;
 static const uint16_t EEPROM_PAGE_SIZE = 64;
 
 // Dati del buffer circolare
 static const uint16_t BUFFER_SIZE = 6;
-static const uint16_t BUFFER_CIRCULAR_START = 0x0FE0;
+static const uint16_t BUFFER_CIRCULAR_START = 0x7FC0;
 static const uint16_t BUFFER_CIRCULAR_END = (BUFFER_CIRCULAR_START + EEPROM_PAGE_SIZE - BUFFER_SIZE);
 static const uint8_t DEFAULT_FLAG = 0xAA;
 
@@ -35,32 +36,26 @@ private:
     uint8_t l_buffer[64];       // Buffer di dati
     eeCircRecord circRecord;    // Struttura record
 
-    void updateCircolarRecord()
-    { // ad ogni trasmissione aggiorno il buffer
-
-        circRecord.recordCount -= 2;
-        circRecord.pageAddress += TRANSFER_SIZE;
-
-        helpMet::serialize(circRecord, l_buffer);
-
-        nEEPROM::writeEEPROMDataAndVerify(circRecordAddress, l_buffer, BUFFER_SIZE);
-    }
-
-    void forwarCircolarRecord()
+    void forwarCircolarRecord(uint16_t freeAddress)
     {
 
         circRecordAddress++; // nuovo indirizzo del buffer circolare
-        if (circRecordAddress > BUFFER_CIRCULAR_END)
-            circRecordAddress = BUFFER_CIRCULAR_START; // eventualmente torna all inizio della pagina
 
-        circRecord.pageAddress += circRecord.recordCount * RECORD_SIZE; // imposta il primo byte libero
-        circRecord.recordCount = 0;                                     // abbiamo appena svuotato la memoria
+        if (circRecordAddress > (BUFFER_CIRCULAR_END)) // lasci lo spazio di 6B per il record ,altrimenti vado a capo
+        {
+            circRecordAddress = BUFFER_CIRCULAR_START;
+        } // eventualmente torna all inizio della pagina
+
+        circRecord.pageAddress = freeAddress; // imposta il primo byte libero
+        circRecord.recordCount = 0;           // abbiamo appena svuotato la memoria
 
         // serializzazione e memorizzazione del record circolare
 
         helpMet::serialize(circRecord, l_buffer);
 
         nEEPROM::writeEEPROMDataAndVerify(circRecordAddress, l_buffer, BUFFER_SIZE);
+
+        wifiK::transmitMQTT(meteoDataTopic, l_buffer, BUFFER_SIZE); // comunichiamo di aver spostato in avanti la memoria
     }
     void prepareBuffer(uint8_t *rawBuffer, uint16_t totalRecordToTransmit)
     {
@@ -68,21 +63,7 @@ private:
         rawBuffer[TRANSFER_SIZE] = static_cast<uint8_t>(totalRecordToTransmit & 0xFF);
     }
 
-    // void updateEEPROM(uint16_t &pageAddress, uint16_t &recordCount) // aggiorna il buffer circolare ,6 byte
-    // {
-    //     circRecord.pageAddress += RECORD_SIZE;
-    //     circRecord.recordCount--;
-
-    //     if (circRecordAddress)
-    //     {
-    //         circRecord.pageAddress = BUFFER_CIRCULAR_START + ((circRecord.pageAddress - BUFFER_CIRCULAR_START + TRANSFER_SIZE) % (BUFFER_CIRCULAR_END - BUFFER_CIRCULAR_START));
-    //     }
-
-    //     helpMet::serialize(circRecord, buffer);
-    //     nEEPROM::writeEEPROMDataAndVerify(circRecordAddress, buffer, BUFFER_SIZE);
-    // }
-
-    bool initializeCircularRecord()
+    bool initializeCircularRecord(uint16_t address = 0)
     {
         DEBUG_PRINT("Initialize!!");
         // uint8_t l_buffer[sizeof(eeCircRecord)];
@@ -93,6 +74,9 @@ private:
         circRecord.pageAddress = 0x0000;
 
         helpMet::serialize(circRecord, l_buffer);
+
+        wifiK::transmitMQTT(meteoDataTopic, l_buffer, BUFFER_SIZE); // comunichiamo di aver resettato il record della memoria
+
         return nEEPROM::writeEEPROMDataAndVerify(circRecordAddress, l_buffer, sizeof(eeCircRecord));
     }
     // Funzione privata che viene chiamata per leggere l'ultimo indirizzo e il contatore del record
@@ -135,7 +119,10 @@ public:
     bool initialize(bool resetCircular = false)
     {
         // Esegui automaticamente la funzione privata durante l'inizializzazione
-        if(resetCircular) initializeCircularRecord();
+        if (resetCircular)
+        {
+            initializeCircularRecord();
+        }
         bool result = readLastPageAddressAndRecordCount();
         if (result == false)
         {
@@ -165,9 +152,7 @@ public:
 
         if ((freeAddr + RECORD_SIZE) > BUFFER_CIRCULAR_START)
         {
-            Serial.println("Errore: Memoria EEPROM DATI piena!");
-            ERROR_PRINT(EEPROMError_className, EEPROMError, EEPROMError::EE_FULL);
-            return false;
+            freeAddr = EEPROM_START_ADDRESS;
         }
 
         circRecord.recordCount++;
@@ -213,21 +198,6 @@ public:
 
         return nEEPROM::writeEEPROMDataAndVerify(circRecordAddress, l_buffer, BUFFER_SIZE); // MEMORIZZO IN NUOVO RECORD COUNT NEL BUFFER CIRCOLARE
     }
-    /*
-    Punti deboli o migliorabili
-Mancanza di timestamp o ID univoco:
-
-I record non hanno timestamp o ID, quindi eventuali duplicati o fuori sequenza (es. in caso di pacchetti ritrasmessi disordinati) potrebbero diventare un problema. Aggiungere un identificatore univoco per ciascun record aiuterebbe a rilevare queste situazioni.
-Conservazione dei record corrotti:
-
-Sebbene i record corrotti siano contrassegnati, la loro presenza nel buffer potrebbe essere problematica per applicazioni che richiedono dati perfetti. Potremmo introdurre una fase di validazione finale per eliminare o isolare questi record.
-Limiti nella tolleranza agli errori consecutivi:
-
-Il limite di "due messaggi consecutivi errati" potrebbe essere troppo rigido in ambienti con interferenze elevate o problemi temporanei di rete. Una soglia configurabile basata su applicazioni reali potrebbe essere più adatta.
-Resilienza generale:
-
-Non è implementato un meccanismo di timeout per gestire situazioni in cui un client smette di rispondere o continua a inviare dati errati.
-    */
 
     void readAndSendStoredRecordFromEeprom()
     {
@@ -250,10 +220,16 @@ Non è implementato un meccanismo di timeout per gestire situazioni in cui un cl
         DEBUG_PRINT(helpMet::str);
         Eeprom_job ejob = NO_JOB;
 
-        for (uint16_t i = 0; i < totalRecordToTransmit; i += MAX_STRUCT) // corretta lettura 64byte
+        for (uint16_t i = 0; i < totalRecordToTransmit; i += MAX_STRUCT) // corretta lettura 64byte meteoDataTopic
         {
             delay(10);
             uint16_t recordAddress = circRecord.pageAddress + (i * RECORD_SIZE);
+
+            // Se superiamo il limite del buffer circolare, torniamo all'inizio
+            if (recordAddress >= BUFFER_CIRCULAR_START)
+            {
+                recordAddress -= BUFFER_CIRCULAR_START;
+            }
 
             if (!nEEPROM::readEEPROMDataWithRetry(recordAddress, rawBuffer, TRANSFER_SIZE))
             {
@@ -292,7 +268,7 @@ Non è implementato un meccanismo di timeout per gestire situazioni in cui un cl
                 if (ejob == UPDATE_EEPROM)
                 {
                     ERROR_PRINT(EEPROMError_className, EEPROMError, EEPROMError::SUCCESS);
-                    forwarCircolarRecord();
+                    forwarCircolarRecord(recordAddress + TRANSFER_SIZE);
                 }
             }
             wifiK::smartDelay(50);
