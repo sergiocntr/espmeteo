@@ -83,7 +83,7 @@ namespace helpMet
 
         // Usare snprintf per evitare overflow
         int bytesWritten = snprintf(str, BUFFER_SIZE,
-                                    "MeteoData - humidityBMP: %.2f, temperatureBMP: %.2f, externalPressure: %.1f, battery: %u, counter: %u, checksum: %u",
+                                    "MeteoData - humidityBMP: %u, temperatureBMP: %u, externalPressure: %u, battery: %u, counter: %u, checksum: %u",
                                     mData->humidityBMP,
                                     mData->temperatureBMP,
                                     mData->externalPressure,

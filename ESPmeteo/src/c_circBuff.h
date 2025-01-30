@@ -161,24 +161,33 @@ public:
 
         int offset = 0;
 
-        // uint8_t l_buffer[RECORD_SIZE];
-        //  Scrittura dei dati nel buffer utilizzando memcpy
-        memcpy(l_buffer + offset, &mData->humidityBMP, sizeof(mData->humidityBMP));
-        offset += sizeof(mData->humidityBMP);
+// Assumiamo che l_buffer sia già definito e abbia una dimensione sufficiente
+uint8_t l_buffer[RECORD_SIZE]; // RECORD_SIZE dovrebbe essere almeno 16
 
-        memcpy(l_buffer + offset, &mData->temperatureBMP, sizeof(mData->temperatureBMP));
-        offset += sizeof(mData->temperatureBMP);
+// Scrittura dei dati nel buffer utilizzando memcpy
+memcpy(l_buffer + offset, &mData->humidityBMP, sizeof(mData->humidityBMP));
+offset += sizeof(mData->humidityBMP);
 
-        memcpy(l_buffer + offset, &mData->externalPressure, sizeof(mData->externalPressure));
-        offset += sizeof(mData->externalPressure);
+memcpy(l_buffer + offset, &mData->temperatureBMP, sizeof(mData->temperatureBMP));
+offset += sizeof(mData->temperatureBMP);
 
-        memcpy(l_buffer + offset, &mData->battery, sizeof(mData->battery));
-        offset += sizeof(mData->battery);
+memcpy(l_buffer + offset, &mData->externalPressure, sizeof(mData->externalPressure));
+offset += sizeof(mData->externalPressure);
 
-        memcpy(l_buffer + offset, &mData->counter, sizeof(mData->counter));
-        offset += sizeof(mData->counter);
+memcpy(l_buffer + offset, &mData->battery, sizeof(mData->battery));
+offset += sizeof(mData->battery);
 
-        memcpy(l_buffer + offset, &mData->checksum, sizeof(mData->checksum));
+// Aggiungi il padding (6 byte)
+uint8_t padding[6] = {0}; // Inizializza il padding a zero
+memcpy(l_buffer + offset, padding, sizeof(padding));
+offset += sizeof(padding);
+
+memcpy(l_buffer + offset, &mData->counter, sizeof(mData->counter));
+offset += sizeof(mData->counter);
+
+memcpy(l_buffer + offset, &mData->checksum, sizeof(mData->checksum));
+
+// A questo punto l_buffer contiene tutti i dati della struttura meteoData
 #if defined DEBUGMIO
         helpMet::printMeteoData(mData);
         sprintf(helpMet::str, "Stampa buffer meteodata...");

@@ -7,14 +7,16 @@ const int default_scl_pin = 2;
 // I2C eeprom stuff
 const int SLAVE_ATTINY_ADDRESS = 2; //
 const int EEPROM_I2C_ADDRESS = 0X50;     // classic I2C EEPROM address
-struct meteoData{
-	float humidityBMP; 			//4 byte
-	float temperatureBMP; 		//4 byte
-	float externalPressure; 	//4 byte
-  	uint16_t battery;			//2 byte
-	uint8_t counter;       		// 1 byte: nr of record
-	uint8_t checksum;   		// 1 byte: checksum per la validità dei dati
+struct meteoData {
+    int16_t humidityBMP;        // 2 byte (float * 128)
+    int16_t temperatureBMP;     // 2 byte (float * 128)
+    int16_t externalPressure;   // 2 byte (float * 128)
+    uint16_t battery;           // 2 byte
+    uint8_t padding[6];         // 6 byte di padding per mantenere 16 byte totali
+    uint8_t counter;            // 1 byte: numero record
+    uint8_t checksum;           // 1 byte: checksum per la validità dei dati
 };
+
 struct eeCircRecord {
     uint8_t wipeFlag = 0xFF;        // Default: 0xFF
     uint8_t flag = 0xAA;            // Default: 0xAA
