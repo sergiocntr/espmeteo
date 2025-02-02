@@ -120,6 +120,7 @@ public:
       }
       delay(400);
     }
+    currmet.deviceID = deviceIDs::marinerUno;
     currmet.battery = 0;
     currmet.checksum = 0;
     currmet.counter = 0;
@@ -185,6 +186,7 @@ public:
     int pres = random(970, 1041);                        // Pressione atmosferica simulata
 
     // Moltiplicazione e conversione in interi
+    currmet.deviceID = deviceIDs::marinerUno;
     currmet.humidityBMP = static_cast<int16_t>(hum * (1 << 7));       // Moltiplicazione con shift (x128)
     currmet.temperatureBMP = static_cast<int16_t>(temp * (1 << 7));   // Moltiplicazione con shift (x128)
     currmet.externalPressure = static_cast<int16_t>(pres * (1 << 7)); // Moltiplicazione con shift (x128)

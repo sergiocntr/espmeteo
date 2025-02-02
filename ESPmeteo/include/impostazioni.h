@@ -3,16 +3,16 @@
 const int default_sda_pin = 0;
 const int default_scl_pin = 2;
 
-
 // I2C eeprom stuff
 const int SLAVE_ATTINY_ADDRESS = 2; //
 const int EEPROM_I2C_ADDRESS = 0X50;     // classic I2C EEPROM address
 struct meteoData {
+    uint8_t deviceID;           // 1 byte: identificativo del dispositivo
     int16_t humidityBMP;        // 2 byte (float * 128)
     int16_t temperatureBMP;     // 2 byte (float * 128)
     int16_t externalPressure;   // 2 byte (float * 128)
     uint16_t battery;           // 2 byte
-    uint8_t padding[6];         // 6 byte di padding per mantenere 16 byte totali
+    uint8_t padding[5];         // 5 byte di padding per mantenere 16 byte totali
     uint8_t counter;            // 1 byte: numero record
     uint8_t checksum;           // 1 byte: checksum per la validità dei dati
 };
@@ -20,7 +20,7 @@ struct meteoData {
 struct eeCircRecord {
     uint8_t wipeFlag = 0xFF;        // Default: 0xFF
     uint8_t flag = 0xAA;            // Default: 0xAA
-    uint16_t pageAddress = 0x0000;       // Default: 0
+    uint16_t pageAddress = 0x0000;  // Default: 0
     uint16_t recordCount = 0;       // Default: 0
 };
 enum ErrorState {

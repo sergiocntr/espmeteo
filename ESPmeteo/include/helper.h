@@ -16,11 +16,39 @@ namespace helpMet
     {
         memcpy(&data, buffer, sizeof(T)); // Copia i dati dal buffer alla struttura
     }
-
-    float truncate(float val, int decimals = 2)
+    void bufferizeData(meteoData *mData, uint8_t *l_buffer)
     {
-        float factor = pow(10, decimals);
-        return floor(val * factor) / factor;
+
+        // Assumiamo che l_buffer sia già definito e abbia una dimensione sufficiente
+        // uint8_t l_buffer[RECORD_SIZE]; // RECORD_SIZE dovrebbe essere almeno 16
+
+        int offset = 0;
+
+        // Scrittura dei dati nel buffer utilizzando memcpy
+        memcpy(l_buffer + offset, &mData->deviceID, sizeof(mData->deviceID));
+        offset += sizeof(mData->deviceID);
+
+        memcpy(l_buffer + offset, &mData->humidityBMP, sizeof(mData->humidityBMP));
+        offset += sizeof(mData->humidityBMP);
+
+        memcpy(l_buffer + offset, &mData->temperatureBMP, sizeof(mData->temperatureBMP));
+        offset += sizeof(mData->temperatureBMP);
+
+        memcpy(l_buffer + offset, &mData->externalPressure, sizeof(mData->externalPressure));
+        offset += sizeof(mData->externalPressure);
+
+        memcpy(l_buffer + offset, &mData->battery, sizeof(mData->battery));
+        offset += sizeof(mData->battery);
+
+        // Aggiungi il padding (5 byte)
+        uint8_t padding[5] = {0}; // Inizializza il padding a zero
+        memcpy(l_buffer + offset, padding, sizeof(padding));
+        offset += sizeof(padding);
+
+        memcpy(l_buffer + offset, &mData->counter, sizeof(mData->counter));
+        offset += sizeof(mData->counter);
+
+        memcpy(l_buffer + offset, &mData->checksum, sizeof(mData->checksum));
     }
 
     char str[256];
@@ -69,7 +97,6 @@ namespace helpMet
         Serial.println(str); // Stampa sulla seriale
 
         delay(10);
-
 
 #endif
     }

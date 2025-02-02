@@ -111,10 +111,14 @@ void setup()
 	{
 		sprintf(helpMet::str, "Spedisco singolo record.");
 		DEBUG_PRINT(helpMet::str);
-		uint8_t buff[32];
-		size_t sizemsg = helpMet::serialize(mdata, buff);
+		//uint8_t buff[32];
+		//size_t sizemsg = helpMet::serialize(mdata, buff);
+		uint8_t l_buffer[RECORD_SIZE];
+
+        helpMet::bufferizeData(&mdata, l_buffer);
+
 		Eeprom_job ejob = NO_JOB;
-		bool result = wifiK::sendWithRetry(buff, sizemsg, ejob);
+		bool result = wifiK::sendWithRetry(l_buffer, RECORD_SIZE, ejob);
 		if (!result)
 		{
 			eHandler.appendRecordToEeprom(&mdata);

@@ -13,6 +13,7 @@
 #include <ESP8266Ping.h>
 #include "debugutils.h"
 #include "impostazioni.h"
+#include "deviceIDs.h"
 #include "m_wifi.h"
 #include "eeprommio.h"
 #include "c_circBuff.h"
