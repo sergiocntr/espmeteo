@@ -26,7 +26,7 @@ static const uint8_t DEFAULT_FLAG = 0xAA;
 
 // Dati meteo
 static const uint8_t RECORD_SIZE = 16;
-static const uint8_t MAX_STRUCT = 2;
+static const uint8_t MAX_STRUCT = 4;
 static const uint16_t TRANSFER_SIZE = (MAX_STRUCT * RECORD_SIZE);
 
 class EepromDataHandler

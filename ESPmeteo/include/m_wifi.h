@@ -30,7 +30,7 @@ namespace wifiK
         {
 
             mqttClient.loop();
-            delay(10);
+            delay(2);
         } while (millis() - start < ms);
     }
 
@@ -45,7 +45,7 @@ namespace wifiK
             {
                 ackMessage += (char)payload[i];
             }
-            Serial.println("ACK ricevuto: " + ackMessage);
+            //Serial.println("ACK ricevuto: " + ackMessage);
             if (strcmp(ackMessage.c_str(), "ack") == 0)
             {
                 ackReceived = ACK;
@@ -70,7 +70,7 @@ namespace wifiK
         unsigned long startMillis = millis();
         while (millis() - startMillis < 1500)
         {
-            smartDelay(100); // Assicura che PubSubClient.loop() sia chiamato durante smartDelay
+            smartDelay(10); // Assicura che PubSubClient.loop() sia chiamato durante smartDelay
             if (ackReceived != NO_ACK)
             {
                 ackMsg = ackReceived;
@@ -145,7 +145,7 @@ namespace wifiK
             }
             delay(500);
         }
-        delay(500);
+        delay(100);
         // if (!Ping.ping(remote_host))
         // {
         // 	return false;
@@ -163,7 +163,7 @@ namespace wifiK
 
         if (isMQTTConnected())
         {
-            smartDelay(100);
+            //smartDelay(10);
             return mqttClient.publish(_topic, _message);
         }
         else
@@ -244,7 +244,7 @@ namespace wifiK
                 if (ackStatus == ACK)
                 {
                     ejob = NO_JOB;
-                    Serial.println("Dati parziali confermati con successo!");
+                    //Serial.println("Dati parziali confermati con successo!");
                     return true; // Successo
                 }
                 else if (ackStatus == FAILED)
