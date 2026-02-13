@@ -2,3 +2,4 @@
 .gcc-flags.json
 .vscode
 .pio/*
+.cache/*

@@ -1,20 +1,27 @@
-//ESPmeteo.h
+// ESPmeteo.h
+#ifndef ESPMETEO_H
+#define ESPMETEO_H
+
 #include <Arduino.h>
-#include "debugutils.h"
-#include "m_errors.h"
-#include "helper.h"
-#include <ESP8266WiFi.h>
-//#include <ESP8266HTTPClient.h>
-#include <Wire.h>
-#include <SPI.h>
-//#include "I2C_Anything.h"
-#include <PubSubClient.h>
-//#include <ArduinoJson.h>
 #include <ESP8266Ping.h>
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#include <SPI.h>
+#include <Wire.h>
+
+// 1. Base definitions and config
+#include "config.h"
 #include "debugutils.h"
 #include "impostazioni.h"
-#include "deviceIDs.h"
+#include "m_errors.h"
+
+// 2. Utility and Communication
+#include "helper.h"
 #include "m_wifi.h"
-#include "eeprommio.h"
+
+// 3. Data Storage and Sensors
 #include "c_circBuff.h"
 #include "c_sensors.h"
+#include "eeprommio.h"
+
+#endif
