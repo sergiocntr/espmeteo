@@ -1,4 +1,5 @@
 #include "debugutils.h"
+
 #ifndef WIFIERROR_H
 #define WIFIERROR_H
 
@@ -9,10 +10,10 @@ enum class WIFIError {
 
 #ifdef DEBUGMIO
 const char* WIFIError_messages[] = {
-    "Connessione WIFI ok.",
-    "Connessione WIFI fallita."
+    "WiFi connection OK.",
+    "WiFi connection failed."
 };
-const char* WIFIError_className = "WIFIError";  // Nome della classe
+const char* WIFIError_className = "WIFIError";
 #endif
 
 #endif // WIFIERROR_H

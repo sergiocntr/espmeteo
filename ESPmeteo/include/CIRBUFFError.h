@@ -1,4 +1,5 @@
 #include "debugutils.h"
+
 #ifndef CIRBUFFERROR_H
 #define CIRBUFFERROR_H
 
@@ -10,11 +11,11 @@ enum class CIRBUFFError {
 
 #ifdef DEBUGMIO
 const char* CIRBUFFError_messages[] = {
-    "Transfer ok!.",
-    "Errore nel recuperare circRecordAddress.",
-    "Errore durante l'inizializzazione del buffer circolare."
+    "Transfer OK!",
+    "Error retrieving circRecordAddress.",
+    "Error during circular buffer initialization."
 };
-const char* CIRBUFFError_className = "CIRBUFF";  // Nome della classe
+const char* CIRBUFFError_className = "CIRBUFFError";
 #endif
 
 #endif // CIRBUFFERROR_H

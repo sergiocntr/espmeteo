@@ -1,0 +1,39 @@
+/**
+ * @file config.h.example
+ * @brief Template for sensitive configuration. 
+ *        COPY THIS TO config.h AND FILL IN YOUR DETAILS.
+ *        config.h is ignored by git to keep your secrets safe.
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// --- WiFi Credentials ---
+const char* ssid     = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// --- MQTT Configuration ---
+const char* mqtt_server = "YOUR_MQTT_BROKER_IP";
+const int   mqtt_port   = 1883;
+const char* mqttUser    = "YOUR_MQTT_USERNAME";
+const char* mqttPass    = "YOUR_MQTT_PASSWORD";
+
+// --- MQTT Topics ---
+const char* logTopic        = "meteo/logs";
+const char* logMeteoTopic   = "meteo/telemetry";
+const char* meteoDataTopic  = "meteo/data";
+const char* ackMeteoTopic   = "meteo/ack";
+
+// --- Network Configuration (Static IP) ---
+const IPAddress marinerUan(192, 168, 1, 100); 
+const IPAddress gateway(192, 168, 1, 1);
+const IPAddress subnet(255, 255, 255, 0);
+const IPAddress dns1(8, 8, 8, 8);
+
+// --- Device Identifiers ---
+namespace deviceIDs {
+    const uint8_t marinerUno = 0x01;
+}
+const char* marinerId = "mariner_device_01";
+
+#endif

@@ -1,4 +1,5 @@
 #include "debugutils.h"
+
 #ifndef MQTTERROR_H
 #define MQTTERROR_H
 
@@ -14,15 +15,15 @@ enum class MQTTError {
 
 #ifdef DEBUGMIO
 const char* MQTTError_messages[] = {
-    "Connessione MQTT OK!",
-    "Connessione MQTT fallita.",
-    "Pubblicazione del messaggio fallita.",
-    "Iscrizione al topic fallita.",
-    "ACK non ricevuto ento il timeout",
-    "Dati parziali inviati e confermati con successo!",
-    "Dati totali inviati e confermati con successo!"
+    "MQTT connection OK!",
+    "MQTT connection failed.",
+    "Message publication failed.",
+    "Topic subscription failed.",
+    "ACK not received within timeout.",
+    "Partial data sent and confirmed successfully!",
+    "Total data sent and confirmed successfully!"
 };
-const char* MQTTError_className = "MQTTError";  // Nome della classe
+const char* MQTTError_className = "MQTTError";
 #endif
 
 #endif // MQTTERROR_H

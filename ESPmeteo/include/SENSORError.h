@@ -1,4 +1,5 @@
 #include "debugutils.h"
+
 #ifndef SENSORERROR_H
 #define SENSORERROR_H
 
@@ -10,11 +11,11 @@ enum class SENSORError {
 
 #ifdef DEBUGMIO
 const char* SENSORError_messages[] = {
-    "BME280 ok.",
-    "Il sensore BME280 non risponde.",
-    "Dati non validi letti dal sensore BME280."
+    "BME280 OK.",
+    "BME280 sensor not responding.",
+    "Invalid data read from BME280 sensor."
 };
-const char* SENSORError_className = "SENSORError";  // Nome della classe
+const char* SENSORError_className = "SENSORError";
 #endif
 
 #endif // SENSORERROR_H

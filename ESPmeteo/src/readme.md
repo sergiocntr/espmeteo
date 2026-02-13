@@ -1,50 +1,43 @@
-## GESTIONE MEMORIA 24LC256 CON BUFFER CIRCOLARE
-- La memoria ha 512 pagine da 64 byte
-- I record sono di 16 byte -> 4 record per pagina
+# ESPmeteo Memory & Logic Management
 
-- L'ultima pagina e' riservata per il buffer circolare
-- Il buffer circolare e' di 6 byte
+This document describes the EEPROM storage strategy and the main program logic for the ESP-01 Weather Station.
 
-- queste le definizioni delel struct e delle variabili globali: 
+## EEPROM Storage (24LC32/24LC256)
+The station uses an external I2C EEPROM to store data when an internet connection is unavailable.
+
+- **Geometry**: The memory is managed in 64-byte pages.
+- **Records**: Each weather record is 16 bytes, allowing for 4 records per page.
+- **Circular Buffer**: The last page is reserved for a circular pointer (6 bytes) that tracks the last written address and total record count.
+
+### Data Structures
+
 ```cpp
-struct meteoData{
-	float humidityBMP; 			//4 byte
-	float temperatureBMP; 		//4 byte
-	float externalPressure; 	//4 byte
-  	uint16_t battery;			//2 byte
-	uint8_t counter;       		// 1 byte: counter record 
-	uint8_t checksum;   		// 1 byte: checksum per la validità dei dati
+struct meteoData {
+    int16_t humidityBMP;       // Humidity (fixed point x128)
+    int16_t temperatureBMP;    // Temperature (fixed point x128)
+    int16_t externalPressure;  // Pressure (fixed point x32)
+    uint16_t battery;          // Battery voltage in mV
+    uint8_t counter;           // Record sequence counter
+    uint8_t checksum;          // Data integrity byte
+    uint8_t padding[5];        // Alignment padding
+    uint32_t deviceID;         // Unique device identifier
 };
-meteoData currmet;
 
 struct eeCircRecord {
-    uint8_t wipeFlag = 0xFF;        // Default: 0xFF
-    uint8_t flag = 0xAA;            // Default: 0xAA
-    uint16_t pageAddress = 0;       // Default: 0
-    uint16_t recordCount = 0;       // Default: 0
+    uint8_t wipeFlag;          // Debug/Wipe flag
+    uint8_t flag;              // Sync flag (0xAA)
+    uint16_t pageAddress;      // Current page address in EEPROM
+    uint16_t recordCount;      // Number of stored records
 };
-eeCircRecord eBuffer;
-uint16_t eBufferAddress;
 ```
 
-### Logica di funzionamento
-1. Al fine di preservare batteria e cicli di scrittura sulla EEPROM ,all avvio viene chiamato 
-```cpp
-readLastPageAddressAndRecordCount()
-```
-il quale si incarica di popolare la struct **eBuffer** e **eBufferAddress**
+## Operation Logic
 
-2. Il programma a questo punto interroga il sensore meteo e popola la struct **currmet**
-3. Se **eeCircRecord.recordCount > 0** aggiunge il record all EEPROM
-```cpp
-void appendRecordToPage(meteoData newRecord)
-```
-4. Tentativo di connessione al WIFI
-- Se il tentativo fallisce spegne.
-- Se il tentativo ha successo manda **currmet** se **eeCircRecord.recordCount = 0** altrimenti recupera tutti i recordo con 
-```cpp
-void appendRecordToPage(meteoData newRecord)
-```
-
-il quale si incarica di scrivere nella EEPROM il nuovo dato raccolto in **currmet** e di aggiornare **eeCircRecord** aumentando il record count di 1. Il processo finisce.
-- Se il tentativo di connessione ha successo abbiamo due opzioni ,se **eBuffer.recordCount > 0** devo leggere la memoria
+1. **Initialization**: On boot, the station reads the last page of the EEPROM to recover the state of the circular buffer (`eBuffer`).
+2. **Sensing**: Atmospheric data is sampled from the BME280 sensor, and battery voltage is requested from the ATtiny85 via I2C.
+3. **Connectivity Check**:
+    - The station attempts to connect to WiFi and the MQTT broker.
+4. **Data Transmission**:
+    - **Success**: If connected, it sends the current record. If there are stored records from previous failed attempts, it transmits the entire backlog.
+    - **Failure**: If connection fails, the current record is appended to the EEPROM for future transmission.
+5. **Sleep**: Once the task is complete (or a timeout is reached), the ESP-01 sends a shutdown command (I2C `20`) to the ATtiny85 and enters deep sleep.

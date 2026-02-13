@@ -1,4 +1,5 @@
 #include "debugutils.h"
+
 #ifndef WIREERROR_H
 #define WIREERROR_H
 
@@ -10,11 +11,11 @@ enum class WIREError {
 
 #ifdef DEBUGMIO
 const char* WIREError_messages[] = {
-    "Transfer ok!.",
-    "Numero di byte richiesti non corrisponde.",
-    "Dati incompleti ricevuti"
+    "Transfer OK!",
+    "Requested byte count mismatch.",
+    "Incomplete data received."
 };
-const char* WIREError_className = "WIREError";  // Nome della classe
+const char* WIREError_className = "WIREError";
 #endif
 
 #endif // WIREERROR_H
