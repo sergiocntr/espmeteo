@@ -24,4 +24,9 @@
 #include "c_sensors.h"
 #include "eeprommio.h"
 
+/**
+ * @brief Sends a ping to the ATtiny to reset its timeout counter.
+ */
+void keepAlive();
+
 #endif

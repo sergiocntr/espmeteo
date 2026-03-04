@@ -221,6 +221,9 @@ public:
           forwardCircularRecord(recordAddress + TRANSFER_SIZE);
         }
       }
+
+      // Send a keep-alive pulse to reset the ATtiny timeout
+      keepAlive();
       wifiK::smartDelay(50);
     }
 

@@ -114,6 +114,7 @@ void powerDownEsp() {
  * @brief I2C OnReceive handler.
  */
 void receiveEvent(uint8_t howMany) {
+  last_active_time = millis(); // Refresh timeout on any receive event
   if (howMany < 1 || howMany > TWI_RX_BUFFER_SIZE)
     return;
 
@@ -129,6 +130,7 @@ void receiveEvent(uint8_t howMany) {
  * @brief I2C OnRequest handler. Sends battery voltage data.
  */
 void requestEvent() {
+  last_active_time = millis(); // Refresh timeout on any request event
   TinyWireS.send(cv.dati[0]);
   TinyWireS.send(cv.dati[1]);
 }
@@ -150,8 +152,9 @@ void setup() {
 }
 
 void loop() {
-  // Keep ESP-01 active for a maximum of 25 seconds
-  while ((millis() - last_active_time) < 25000) {
+  // Keep ESP-01 active for a maximum of 15 seconds (failsafe)
+  // This timer is refreshed by any I2C communication from the ESP-01.
+  while ((millis() - last_active_time) < 15000) {
     if (watch_dog_counter >= 100) {
       watch_dog_counter = 0;
       digitalWrite(PIN_POWER_CONTROL, HIGH); // Pulse or keep alive

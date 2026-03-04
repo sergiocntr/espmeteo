@@ -37,11 +37,19 @@ void printFreeRAM(const char *label) {
  * @brief Sends a shutdown command to the ATtiny power manager.
  */
 void shutDownNow() {
-  Wire.begin(default_sda_pin, default_scl_pin);
-  Wire.beginTransmission(2); // I2C address of ATtiny
-  Wire.write(20);            // Command 20: Power down
+  Wire.beginTransmission(SLAVE_ATTINY_ADDRESS); // I2C address of ATtiny
+  Wire.write(20);                               // Command 20: Power down
   Wire.endTransmission(true);
   delay(50);
+}
+
+/**
+ * @brief Sends a ping to the ATtiny to reset its timeout counter.
+ */
+void keepAlive() {
+  Wire.beginTransmission(SLAVE_ATTINY_ADDRESS);
+  Wire.write(21); // Command 21: Keep alive / Ping
+  Wire.endTransmission(true);
 }
 
 // #define DEBUGMIO // Uncomment to enable serial debugging
