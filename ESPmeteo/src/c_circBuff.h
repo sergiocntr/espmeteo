@@ -223,7 +223,7 @@ public:
       }
 
       // Send a keep-alive pulse to reset the ATtiny timeout
-      keepAlive();
+      wifiK::keepAlive();
       wifiK::smartDelay(50);
     }
 

@@ -21,7 +21,7 @@
  * @brief       Controls power to an ESP-01 module. Monitors battery and
  *              communicates via I2C to optimize power consumption.
  * @author      Sergio
- * @version     1.1
+ * @version     1.2
  * **************************************************************************
  */
 

@@ -40,4 +40,6 @@ struct eeCircRecord {
 4. **Data Transmission**:
     - **Success**: If connected, it sends the current record. If there are stored records from previous failed attempts, it transmits the entire backlog.
     - **Failure**: If connection fails, the current record is appended to the EEPROM for future transmission.
-5. **Sleep**: Once the task is complete (or a timeout is reached), the ESP-01 sends a shutdown command (I2C `20`) to the ATtiny85 and enters deep sleep.
+5. **Sleep**: Once the task is complete , the ESP-01 sends a shutdown command (I2C `20`) to the ATtiny85 and enters deep sleep.
+    - The ATtiny85 has a timeout of 15 seconds. If it doesn't receive any I2C communication from the ESP-01 for 15 seconds, it will shut down the ESP-01.
+    - The ESP-01 sends a keep-alive pulse (I2C `21`) to the ATtiny85 every 500ms to reset the timeout counter.
